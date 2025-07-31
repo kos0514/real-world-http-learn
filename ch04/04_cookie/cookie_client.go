@@ -38,14 +38,8 @@ func main() {
 		// サーバーURLを解析（Cookieの表示に使用）
 		serverURL, _ := url.Parse("http://localhost:18888")
 
-		// 送信前のCookieの情報を表示
-		fmt.Printf("\n==========送信前のCookieの情報（%d回目）==========\n", i+1)
 		if len(client.Jar.Cookies(serverURL)) == 0 {
 			fmt.Println("Cookieはまだ設定されていません")
-		} else {
-			for _, cookie := range client.Jar.Cookies(serverURL) {
-				fmt.Printf("Cookie: %s=%s\n", cookie.Name, cookie.Value)
-			}
 		}
 
 		// リクエストをダンプして表示（送信前）
@@ -75,11 +69,5 @@ func main() {
 			panic(err)
 		}
 		fmt.Println(string(respDump))
-
-		// 受信後のCookieの情報を表示
-		fmt.Printf("\n==========受信後のCookieの情報（%d回目）==========\n", i+1)
-		for _, cookie := range client.Jar.Cookies(serverURL) {
-			fmt.Printf("Cookie: %s=%s\n", cookie.Name, cookie.Value)
-		}
 	}
 }
