@@ -23,3 +23,20 @@ go.work.sum
 
 # Editor directories and files
 .idea
+
+# TLS lab (ch07/02_tls) — keep dirs with .gitkeep, ignore secrets/state
+
+# Ignore contents of any 'private' directory, but keep its .gitkeep
+ch07/02_tls/**/private/*
+!ch07/02_tls/**/private/.gitkeep
+
+# Ignore CA database/state files under ca/db, but keep .gitkeep
+ch07/02_tls/ca/db/*
+!ch07/02_tls/ca/db/.gitkeep
+
+# Ignore OpenSSL serial files
+ch07/02_tls/**/*.srl
+
+# Optional: ignore CSRs and certs (uncomment if needed)
+# ch07/02_tls/**/*.csr
+# ch07/02_tls/**/*.crt
