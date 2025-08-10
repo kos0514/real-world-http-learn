@@ -27,11 +27,15 @@ challengePassword_max		= 20
 basicConstraints=critical,CA:TRUE,pathlen:0
 keyUsage=digitalSignature,keyCertSign,cRLSign
 
-[Server]
+[ Server ]
 basicConstraints=CA:FALSE
 keyUsage=digitalSignature,dataEncipherment
 extendedKeyUsage=serverAuth
+subjectAltName = @alt_names
 
+[ alt_names ]
+DNS.1 = localhost
+IP.1  = 127.0.0.1
 [Client]
 basicConstraints=CA:FALSE
 keyUsage=digitalSignature,dataEncipherment

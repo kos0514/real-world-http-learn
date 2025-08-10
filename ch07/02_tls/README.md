@@ -8,21 +8,21 @@
 ch07/02_tls/
   README.md
   server_tls.go
-  conf/
-    openssl.cnf              # OpenSSL 設定
+  conf/                      # OpenSSL 設定
+    openssl.cnf
   ca/
     private/                 # CA 秘密鍵 (コミット対象外推奨)
       ca.key
-    certs/
+    certs/                   # CA の公開証明書を格納
       ca.crt
-    csr/
+    csr/                     # CA の証明書署名要求（CSR）を格納
       ca.csr
   server/
     private/                 # サーバー秘密鍵 (コミット対象外推奨)
       server.key
-    certs/
+    certs/                   # サーバーの公開証明書を格納
       server.crt
-    csr/
+    csr/                     # サーバーの証明書署名要求（CSR）を格納
       server.csr
 ```
 
@@ -56,4 +56,14 @@ $ openssl req -new -nodes -sha256 -key server/private/server.key -out server/csr
 
 # 証明書を自分の秘密鍵で署名して作成
 $ openssl x509 -req -days 365 -in server/csr/server.csr -sha256 -out server/certs/server.crt -CA ca/certs/ca.crt -CAkey ca/private/ca.key -CAcreateserial -extfile ./conf/openssl.cnf -extensions Server
+```
+
+
+## サーバーの実行
+
+サーバーの証明書と鍵を配置したうえで、以下の手順で起動します（カレントディレクトリを ch07/02_tls にして実行）。
+
+```
+cd ch07/02_tls
+go run ./server_tls.go
 ```
