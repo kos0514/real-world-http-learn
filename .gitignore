@@ -30,9 +30,6 @@ go.work.sum
 ch07/02_tls/**/private/*
 !ch07/02_tls/**/private/.gitkeep
 
-# Ignore CA database/state files under ca/db, but keep .gitkeep
-ch07/02_tls/ca/db/*
-!ch07/02_tls/ca/db/.gitkeep
 
 # Ignore OpenSSL serial files
 ch07/02_tls/**/*.srl
