@@ -9,28 +9,13 @@
 package main
 
 import (
-	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
-)
 
-// TLS バージョンを人が読める文字列に変換
-func tlsVersionName(v uint16) string {
-	switch v {
-	case tls.VersionTLS13:
-		return "TLS1.3"
-	case tls.VersionTLS12:
-		return "TLS1.2"
-	case tls.VersionTLS11:
-		return "TLS1.1"
-	case tls.VersionTLS10:
-		return "TLS1.0"
-	default:
-		return fmt.Sprintf("0x%04x", v)
-	}
-}
+	"real-world-http-learn/ch07/02_tls/tlsutil"
+)
 
 // handler は受け取った HTTP リクエストを標準出力にダンプし、固定の HTML を返します。
 // DumpRequest の第 2 引数 true は「ボディも含めてダンプする」指定です。
@@ -46,19 +31,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 	// 可視化: この接続で交渉された TLS 情報をログ出力
 	if r.TLS != nil {
-		log.Printf("[TLS][server] version=%s cipher=%s alpn=%q sni=%q resumed=%v peerCerts=%d",
-			tlsVersionName(r.TLS.Version),
-			tls.CipherSuiteName(r.TLS.CipherSuite),
-			r.TLS.NegotiatedProtocol,
-			r.TLS.ServerName,
-			r.TLS.DidResume,
-			len(r.TLS.PeerCertificates),
-		)
-		if len(r.TLS.PeerCertificates) > 0 {
-			log.Printf("[TLS][server] client cert subject=%s", r.TLS.PeerCertificates[0].Subject.String())
-		} else {
-			log.Printf("[TLS][server] no client certificate presented")
-		}
+		tlsutil.LogServerState(r.TLS)
 	}
 
 	// クライアントへ簡単な HTML を返す

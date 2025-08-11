@@ -7,23 +7,9 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
-)
 
-// TLS バージョンを人が読める文字列に変換（クライアント側・mTLS用）
-func tlsVersionNameMTLS(v uint16) string {
-	switch v {
-	case tls.VersionTLS13:
-		return "TLS1.3"
-	case tls.VersionTLS12:
-		return "TLS1.2"
-	case tls.VersionTLS11:
-		return "TLS1.1"
-	case tls.VersionTLS10:
-		return "TLS1.0"
-	default:
-		return "unknown"
-	}
-}
+	"real-world-http-learn/ch07/02_tls/tlsutil"
+)
 
 // mTLS（相互TLS）クライアントの最小実装。
 // - 自身のクライアント証明書/秘密鍵を提示（client/certs/client.crt と client/private/client.key）
@@ -67,17 +53,7 @@ func main() {
 
 	// 可視化: 交渉結果の TLS 情報をログ出力
 	if resp.TLS != nil {
-		log.Printf("[TLS][client] version=%s cipher=%s alpn=%q sni=%q resumed=%v verifiedChains=%d",
-			tlsVersionNameMTLS(resp.TLS.Version),
-			tls.CipherSuiteName(resp.TLS.CipherSuite),
-			resp.TLS.NegotiatedProtocol,
-			resp.TLS.ServerName,
-			resp.TLS.DidResume,
-			len(resp.TLS.VerifiedChains),
-		)
-		if len(resp.TLS.PeerCertificates) > 0 {
-			log.Printf("[TLS][client] server cert subject=%s", resp.TLS.PeerCertificates[0].Subject.String())
-		}
+		tlsutil.LogClientState(resp.TLS)
 	}
 
 	dump, err := httputil.DumpResponse(resp, true)

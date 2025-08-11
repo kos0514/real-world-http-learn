@@ -8,23 +8,9 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
-)
 
-// TLS バージョンを人が読める文字列に変換（サーバー側・mTLS用）
-func tlsVersionNameServer(v uint16) string {
-	switch v {
-	case tls.VersionTLS13:
-		return "TLS1.3"
-	case tls.VersionTLS12:
-		return "TLS1.2"
-	case tls.VersionTLS11:
-		return "TLS1.1"
-	case tls.VersionTLS10:
-		return "TLS1.0"
-	default:
-		return fmt.Sprintf("0x%04x", v)
-	}
-}
+	"real-world-http-learn/ch07/02_tls/tlsutil"
+)
 
 // mTLS（相互TLS）対応サーバー。
 // - クライアント証明書の提示と検証を必須化（ClientAuth: RequireAndVerifyClientCert）
@@ -43,19 +29,7 @@ func handlerMTLS(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(string(dump))
 
 	if r.TLS != nil {
-		log.Printf("[TLS][server] version=%s cipher=%s alpn=%q sni=%q resumed=%v peerCerts=%d",
-			tlsVersionNameServer(r.TLS.Version),
-			tls.CipherSuiteName(r.TLS.CipherSuite),
-			r.TLS.NegotiatedProtocol,
-			r.TLS.ServerName,
-			r.TLS.DidResume,
-			len(r.TLS.PeerCertificates),
-		)
-		if len(r.TLS.PeerCertificates) > 0 {
-			log.Printf("[TLS][server] client cert subject=%s", r.TLS.PeerCertificates[0].Subject.String())
-		} else {
-			log.Printf("[TLS][server] no client certificate presented")
-		}
+		tlsutil.LogServerState(r.TLS)
 	}
 
 	fmt.Fprintf(w, "<html><body>hello (mTLS)</body></html>\n")
