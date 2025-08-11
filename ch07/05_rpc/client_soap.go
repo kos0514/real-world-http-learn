@@ -12,7 +12,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -23,28 +22,8 @@ import (
 )
 
 const (
-	endpoint  = "http://localhost:8081/soap"
-	soapEnvNS = "http://schemas.xmlsoap.org/soap/envelope/"
+	endpoint = "http://localhost:8081/soap"
 )
-
-// 送信用 Envelope（Body に任意の要素を格納）
-type cEnvelopeOut struct {
-	XMLName xml.Name      `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
-	Body    cEnvelopeBody `xml:"http://schemas.xmlsoap.org/soap/envelope/ Body"`
-}
-
-type cEnvelopeBody struct {
-	Payload any `xml:",any"`
-}
-
-// 受信用 Envelope（Body の中身だけ innerxml として取得）
-type cEnvelopeIn struct {
-	XMLName xml.Name `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
-	Body    struct {
-		XMLName xml.Name `xml:"http://schemas.xmlsoap.org/soap/envelope/ Body"`
-		Content []byte   `xml:",innerxml"`
-	} `xml:"http://schemas.xmlsoap.org/soap/envelope/ Body"`
-}
 
 func main() {
 	// 保管庫
@@ -103,14 +82,16 @@ func callMoveAll(from, to string, includeHold bool) (*rpcdef.MoveAllResponse, er
 // Body 直下のレスポンス要素を out にデコードします。Fault の場合は error を返します。
 func doSOAPCall(payload any, out any) error {
 	// Envelope に包む
-	env := cEnvelopeOut{Body: cEnvelopeBody{Payload: payload}}
-	buf := &bytes.Buffer{}
-	if err := xml.NewEncoder(buf).Encode(env); err != nil {
+	breq, err := rpcdef.MarshalEnvelope(payload, false, false)
+	if err != nil {
 		return fmt.Errorf("encode envelope: %w", err)
 	}
+	// 送信するXMLを標準出力にダンプ（確認用）
+	fmt.Println("---- Request XML ----")
+	fmt.Println(string(breq))
 
 	// HTTP POST で送信
-	req, err := http.NewRequest(http.MethodPost, endpoint, buf)
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(breq))
 	if err != nil {
 		return err
 	}
@@ -124,42 +105,40 @@ func doSOAPCall(payload any, out any) error {
 	defer resp.Body.Close()
 
 	b, _ := io.ReadAll(resp.Body)
+	// 受信したXMLを標準出力にダンプ（確認用）
+	fmt.Println("---- Response XML ----")
+	fmt.Println(string(b))
 
 	// Envelope として復号
-	var in cEnvelopeIn
-	if err := xml.Unmarshal(b, &in); err != nil {
+	var in rpcdef.EnvelopeIn
+	if err := rpcdef.UnmarshalEnvelope(b, &in); err != nil {
 		return fmt.Errorf("invalid SOAP envelope: %w", err)
 	}
 
 	// Body 直下の最初の要素を確認し、Fault ならエラー返却
-	dec := xml.NewDecoder(bytes.NewReader(in.Body.Content))
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			return fmt.Errorf("empty SOAP body: %w", err)
-		}
-		if st, ok := tok.(xml.StartElement); ok {
-			// Fault 判定（soapenv:Fault）
-			if st.Name.Local == "Fault" && st.Name.Space == soapEnvNS {
-				// 最低限 faultstring を拾って返す
-				type fault struct {
-					FaultCode   string `xml:"faultcode"`
-					FaultString string `xml:"faultstring"`
-				}
-				var f fault
-				if err := dec.DecodeElement(&f, &st); err != nil {
-					return errors.New("soap fault")
-				}
-				if f.FaultString != "" {
-					return errors.New(f.FaultString)
-				}
-				return errors.New("soap fault")
-			}
-			// Fault でなければ期待のレスポンスとしてデコード
-			if err := dec.DecodeElement(out, &st); err != nil {
-				return fmt.Errorf("decode response: %w", err)
-			}
-			return nil
-		}
+	dec, st, err := rpcdef.BodyFirstStart(in.Body.Content)
+	if err != nil {
+		return fmt.Errorf("empty SOAP body: %w", err)
 	}
+	// Fault 判定（soapenv:Fault）
+	if st.Name.Local == "Fault" && st.Name.Space == rpcdef.SoapEnvNS {
+		// 最低限 faultstring を拾って返す
+		type fault struct {
+			FaultCode   string `xml:"faultcode"`
+			FaultString string `xml:"faultstring"`
+		}
+		var f fault
+		if err := dec.DecodeElement(&f, &st); err != nil {
+			return errors.New("soap fault")
+		}
+		if f.FaultString != "" {
+			return errors.New(f.FaultString)
+		}
+		return errors.New("soap fault")
+	}
+	// Fault でなければ期待のレスポンスとしてデコード
+	if err := dec.DecodeElement(out, &st); err != nil {
+		return fmt.Errorf("decode response: %w", err)
+	}
+	return nil
 }

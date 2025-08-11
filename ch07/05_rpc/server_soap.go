@@ -13,7 +13,6 @@ package main
 // - レスポンスは SOAP Envelope で包んで返却します。エラー時は簡易 Fault を返します。
 
 import (
-	"bytes"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -22,25 +21,6 @@ import (
 
 	"real-world-http-learn/ch07/05_rpc/rpcdef"
 )
-
-// 受信用の Envelope（Body の中身は innerxml で取り出す）
-type envelopeIn struct {
-	XMLName xml.Name `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
-	Body    struct {
-		XMLName xml.Name `xml:"http://schemas.xmlsoap.org/soap/envelope/ Body"`
-		Content []byte   `xml:",innerxml"`
-	} `xml:"http://schemas.xmlsoap.org/soap/envelope/ Body"`
-}
-
-// 送信用の Envelope（Payload に任意の要素を詰める）
-type envelopeOut struct {
-	XMLName xml.Name     `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
-	Body    envelopeBody `xml:"http://schemas.xmlsoap.org/soap/envelope/ Body"`
-}
-
-type envelopeBody struct {
-	Payload any `xml:",any"`
-}
 
 func main() {
 	http.HandleFunc("/soap", soapHandler)
@@ -52,6 +32,11 @@ func main() {
 
 // SOAP 受信処理: Body 直下の要素名で分岐し、対応する処理を行う。
 func soapHandler(w http.ResponseWriter, r *http.Request) {
+	// GET ならサンプルXMLを返してブラウザでも確認できるようにする
+	if r.Method == http.MethodGet {
+		writeSampleXML(w)
+		return
+	}
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		_, _ = w.Write([]byte("Method Not Allowed"))
@@ -68,27 +53,19 @@ func soapHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// SOAP Envelope としてパース
-	var env envelopeIn
-	if err := xml.Unmarshal(bodyBytes, &env); err != nil {
+	var env rpcdef.EnvelopeIn
+	if err := rpcdef.UnmarshalEnvelope(bodyBytes, &env); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte("invalid SOAP envelope"))
 		return
 	}
 
-	// Body 直下の最初の開始タグを取得
-	dec := xml.NewDecoder(bytes.NewReader(env.Body.Content))
-	var se xml.StartElement
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte("empty SOAP body"))
-			return
-		}
-		if st, ok := tok.(xml.StartElement); ok {
-			se = st
-			break
-		}
+	// Body 直下の最初の開始タグを取得（ヘルパー関数で簡略化）
+	dec, se, err := rpcdef.BodyFirstStart(env.Body.Content)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("empty SOAP body"))
+		return
 	}
 
 	switch se.Name.Local {
@@ -136,9 +113,10 @@ func soapHandler(w http.ResponseWriter, r *http.Request) {
 // 正常レスポンスを SOAP Envelope で返却
 func writeSOAP(w http.ResponseWriter, payload any) {
 	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-	out := envelopeOut{Body: envelopeBody{Payload: payload}}
 	w.WriteHeader(http.StatusOK)
-	_ = xml.NewEncoder(w).Encode(out)
+	if err := rpcdef.EncodeEnvelope(w, payload, true, true); err != nil {
+		log.Println("encode envelope error:", err)
+	}
 }
 
 // SOAP Fault（簡易版）を返却
@@ -150,8 +128,18 @@ func soapFault(w http.ResponseWriter, msg string) {
 		FaultCode   string   `xml:"faultcode"`
 		FaultString string   `xml:"faultstring"`
 	}
-	out := envelopeOut{Body: envelopeBody{Payload: fault{FaultCode: "SOAP-ENV:Client", FaultString: msg}}}
 	// SOAP では HTTP 200 で Fault を包むケースも多い（今回はそれに倣う）
 	w.WriteHeader(http.StatusOK)
-	_ = xml.NewEncoder(w).Encode(out)
+	if err := rpcdef.EncodeEnvelope(w, fault{FaultCode: "SOAP-ENV:Client", FaultString: msg}, true, true); err != nil {
+		log.Println("encode envelope error:", err)
+	}
+}
+
+// GET /soap 用: サンプルXMLを返す（ブラウザ等での確認用）
+func writeSampleXML(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	if err := rpcdef.EncodeEnvelope(w, rpcdef.PutInArchiveResponse{Result: "Archived: ITEM-001"}, true, true); err != nil {
+		log.Println("encode envelope error:", err)
+	}
 }
