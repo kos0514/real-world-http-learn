@@ -41,8 +41,7 @@ func main() {
 	}
 	// 以後は独自プロトコル。resp.Body は触らない（HTTP ではない）
 
-	// サーバから 1 行受信 -> 1 行送信を繰り返す
-	counter := 10
+	// サーバから 1 行ずつ受信して表示し、EOF で終了（送信はしない）
 	for {
 		data, err := reader.ReadBytes('\n')
 		if err != nil {
@@ -52,14 +51,5 @@ func main() {
 			log.Fatal(err)
 		}
 		fmt.Println("<-", string(bytes.TrimSpace(data)))
-
-		if counter <= 0 {
-			break
-		}
-		if _, err := fmt.Fprintf(conn, "%d\n", counter); err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println("->", counter)
-		counter--
 	}
 }
