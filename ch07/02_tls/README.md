@@ -13,6 +13,7 @@ ch07/02_tls/
     client_tls_no_cert.go
     client_tls_bad_cipher.go
     client_tls_old_version.go
+    client_tls_resumption.go
   02_mtls/                  # 相互 TLS（mTLS）
     server_mtls.go
     client_mtls.go
@@ -90,10 +91,9 @@ $ openssl x509 -req -days 365 -in client/csr/client.csr -sha256 -out client/cert
 
 ## サーバーの実行
 
-サーバーの証明書と鍵を配置したうえで、以下の手順で起動します（カレントディレクトリを ch07/02_tls にして実行）。
+最初に ch07/02_tls へ移動してください（以降のコードブロックはコマンドのみを記載します）。
 
 ```
-cd ch07/02_tls
 go run ./01_tls/server_tls.go
 ```
 
@@ -159,6 +159,22 @@ go run ./01_tls/client_tls_old_version.go
 - いずれのクライアントも、証明書検証は成功するよう自前 CA（ca/certs/ca.crt）を RootCAs に設定しています。失敗要因を暗号ポリシーに限定するためです。
 - サーバー起動例: `go run ./01_tls/server_tls.go`（別シェルで）。
 
+## セッション再開（1-RTT）デモ
+
+ClientSessionCache を利用してセッション再開を明示的に観測するデモです。各リクエストで新規 TCP 接続を張り、2 回目以降で DidResume=true になることをログで確認します。
+
+実行（別シェルでサーバーが起動している前提: `go run ./01_tls/server_tls.go`）
+```
+go run ./01_tls/client_tls_resumption.go
+```
+
+期待される挙動:
+- 1 回目: DidResume=false（フルハンドシェイク）
+- 2 回目以降: DidResume=true（セッション再開）
+
+補足:
+- TLS 1.3 では NewSessionTicket が非同期で到着するため、本クライアントは短い待機を入れています。
+
 ## 実行コマンドまとめ
 
 最初に ch07/02_tls へ移動してください（以降のコードブロックはコマンドのみを記載します）。
@@ -184,6 +200,10 @@ go run ./01_tls/client_tls_bad_cipher.go
 - 非準拠クライアント（TLS1.1 以下）
 ```
 go run ./01_tls/client_tls_old_version.go
+```
+- セッション再開デモ（1-RTT）
+```
+go run ./01_tls/client_tls_resumption.go
 ```
 
 ### 相互 TLS: 02_mtls
