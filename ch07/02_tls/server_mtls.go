@@ -50,6 +50,16 @@ func main() {
 		ClientAuth: tls.RequireAndVerifyClientCert, // クライアント証明書を必須に
 		ClientCAs:  clientCAPool,                   // 検証用 CA
 		MinVersion: tls.VersionTLS12,               // 最低 TLS 1.2
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+		},
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+		NextProtos:       []string{"h2", "http/1.1"}, // ALPN で HTTP/2 と HTTP/1.1 を広告
 	}
 
 	server := &http.Server{

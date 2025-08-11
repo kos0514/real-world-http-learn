@@ -109,3 +109,46 @@ go run ./client_tls_with_cert.go
 ```
 
 これらのログにより、TLS バージョンや暗号スイート、SNI、セッション再開の有無などが簡単に可視化できます。
+
+## HTTP/2 について
+
+このディレクトリのサンプルは、ALPN により HTTP/2 (h2) と HTTP/1.1 を自動交渉します。環境が対応していれば HTTP/2 が優先されます。
+
+- サーバ（server_tls.go / server_mtls.go）
+  - tls.Config.NextProtos = ["h2", "http/1.1"] を広告し、TLS の最低バージョンを TLS 1.2 に設定。TLS 1.2 では AEAD のみ許可、楕円曲線は X25519/P-256 を優先。
+- クライアント（client_tls_with_cert.go / client_mtls.go / client_tls_no_cert.go）
+  - 既定設定を利用し、HTTP/2 を自動交渉します（明示的な HTTP/2 無効化は行いません）。
+
+確認方法:
+- 実行時ログ（tlsutil）に出力される alpn が "h2" なら HTTP/2、"http/1.1" なら HTTP/1.1 で通信しています。
+
+
+## 非準拠クライアント（サーバーポリシーに合致しない例）
+
+サーバー側は MinVersion=TLS1.2 を要求し、TLS1.2 では AEAD（AES-GCM/ChaCha20-Poly1305）のみを許可しています。
+以下のサンプルクライアントはこの方針に「意図的に不一致」となる設定で接続を試み、ハンドシェイク段階で拒否されることを確認できます。
+
+1) TLS1.2 + CBC（非AEAD）のみを提示して失敗
+
+```
+cd ch07/02_tls
+go run ./client_tls_bad_cipher.go
+```
+
+期待される挙動:
+- エラーメッセージ例: "remote error: tls: handshake failure", "tls: no cipher suite supported by both client and server" など
+- 成功した場合は想定外です（サーバーの許可スイートに誤りがある可能性）。
+
+2) TLS1.1 以下のみを許可して失敗
+
+```
+cd ch07/02_tls
+go run ./client_tls_old_version.go
+```
+
+期待される挙動:
+- エラーメッセージ例: "remote error: tls: protocol version not supported" など
+
+補足:
+- いずれのクライアントも、証明書検証は成功するよう自前 CA（ca/certs/ca.crt）を RootCAs に設定しています。失敗要因を暗号ポリシーに限定するためです。
+- サーバー起動例: `go run ./server_tls.go`（別シェルで）。

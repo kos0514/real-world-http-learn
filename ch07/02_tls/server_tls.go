@@ -9,6 +9,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
@@ -39,15 +40,32 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// ルートパスへのアクセスは handler で処理
-	http.HandleFunc("/", handler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handler)
 
-	log.Println("start https listening :18443")
-	// ListenAndServeTLS は HTTPS でサーバーを起動します。
-	// 第 2 引数: サーバー証明書のパス
-	// 第 3 引数: 秘密鍵のパス（パスフレーズ無しを推奨／学習用）
-	// 第 4 引数: サーバーのハンドラ。nil を渡すと http.DefaultServeMux が使われます。
-	err := http.ListenAndServeTLS(":18443", "./server/certs/server.crt", "./server/private/server.key", nil)
-	// サーバーが終了した（または起動失敗した）場合のエラーログ
-	log.Println(err)
+	// TLS をハードニングしつつ、ALPN では HTTP/2 と HTTP/1.1 の両方を広告
+	tlsConf := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+		},
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+		NextProtos:       []string{"h2", "http/1.1"},
+	}
+	server := &http.Server{
+		Addr:      ":18443",
+		Handler:   mux,
+		TLSConfig: tlsConf,
+	}
+
+	log.Println("start https listening :18443 (ALPN: h2/http1.1)")
+	if err := server.ListenAndServeTLS("./server/certs/server.crt", "./server/private/server.key"); err != nil {
+		// サーバーが終了した（または起動失敗した）場合のエラーログ
+		log.Println(err)
+	}
 }

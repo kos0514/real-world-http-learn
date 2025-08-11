@@ -16,6 +16,7 @@ import (
 //   - 学習用途のみ: Transport の TLS 設定で InsecureSkipVerify=true を使う方法もありますが、
 //     実運用では非推奨です（検証を無効化するためMITM等に弱くなります）。
 func main() {
+	// 既定の http.Client を使用します（環境が対応していれば HTTP/2 が自動で利用されます）
 	resp, err := http.Get("https://localhost:18443")
 	if err != nil {
 		panic(err)

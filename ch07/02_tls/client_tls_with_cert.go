@@ -26,7 +26,7 @@ func main() {
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(cert)
 
-	// TLS 設定を構築
+	// TLS 設定を構築（ALPN はデフォルトに任せる: h2/HTTP1.1 を自動交渉）
 	tlsConfig := &tls.Config{
 		RootCAs:    certPool,    // この CA を信頼してサーバー証明書を検証する
 		ServerName: "localhost", // SNI/ホスト名検証で使う名前（今回は localhost）

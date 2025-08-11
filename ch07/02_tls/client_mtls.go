@@ -33,7 +33,7 @@ func main() {
 		panic("failed to append CA cert")
 	}
 
-	// 3) TLS 設定を構築
+	// 3) TLS 設定を構築（ALPN はデフォルトに任せる: h2/HTTP1.1 を自動交渉）
 	tlsConf := &tls.Config{
 		Certificates: []tls.Certificate{cert}, // クライアント証明書を提示
 		RootCAs:      rootCAs,                 // サーバー証明書の検証用 CA
@@ -41,7 +41,9 @@ func main() {
 	}
 
 	client := &http.Client{
-		Transport: &http.Transport{TLSClientConfig: tlsConf},
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConf,
+		},
 	}
 
 	// 4) 通信を行う
