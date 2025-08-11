@@ -7,7 +7,17 @@
 ```
 ch07/02_tls/
   README.md
-  server_tls.go
+  01_tls/                   # 片方向 TLS（通常の TLS）
+    server_tls.go
+    client_tls_with_cert.go
+    client_tls_no_cert.go
+    client_tls_bad_cipher.go
+    client_tls_old_version.go
+  02_mtls/                  # 相互 TLS（mTLS）
+    server_mtls.go
+    client_mtls.go
+  tlsutil/
+    tlsutil.go
   conf/                      # OpenSSL 設定
     openssl.cnf
   ca/
@@ -84,7 +94,7 @@ $ openssl x509 -req -days 365 -in client/csr/client.csr -sha256 -out client/cert
 
 ```
 cd ch07/02_tls
-go run ./server_tls.go
+go run ./01_tls/server_tls.go
 ```
 
 ## TLS 可視化ログ
@@ -100,12 +110,10 @@ go run ./server_tls.go
 
 ```
 # サーバー
-cd ch07/02_tls
-go run ./server_tls.go
+go run ./01_tls/server_tls.go
 
 # クライアント（別シェルで）
-cd ch07/02_tls
-go run ./client_tls_with_cert.go
+go run ./01_tls/client_tls_with_cert.go
 ```
 
 これらのログにより、TLS バージョンや暗号スイート、SNI、セッション再開の有無などが簡単に可視化できます。
@@ -131,8 +139,7 @@ go run ./client_tls_with_cert.go
 1) TLS1.2 + CBC（非AEAD）のみを提示して失敗
 
 ```
-cd ch07/02_tls
-go run ./client_tls_bad_cipher.go
+go run ./01_tls/client_tls_bad_cipher.go
 ```
 
 期待される挙動:
@@ -142,8 +149,7 @@ go run ./client_tls_bad_cipher.go
 2) TLS1.1 以下のみを許可して失敗
 
 ```
-cd ch07/02_tls
-go run ./client_tls_old_version.go
+go run ./01_tls/client_tls_old_version.go
 ```
 
 期待される挙動:
@@ -151,4 +157,42 @@ go run ./client_tls_old_version.go
 
 補足:
 - いずれのクライアントも、証明書検証は成功するよう自前 CA（ca/certs/ca.crt）を RootCAs に設定しています。失敗要因を暗号ポリシーに限定するためです。
-- サーバー起動例: `go run ./server_tls.go`（別シェルで）。
+- サーバー起動例: `go run ./01_tls/server_tls.go`（別シェルで）。
+
+## 実行コマンドまとめ
+
+最初に ch07/02_tls へ移動してください（以降のコードブロックはコマンドのみを記載します）。
+
+### 片方向 TLS: 01_tls
+
+- サーバー起動
+```
+go run ./01_tls/server_tls.go
+```
+- クライアント（自前 CA で検証）
+```
+go run ./01_tls/client_tls_with_cert.go
+```
+- クライアント（システム CA のみ）
+```
+go run ./01_tls/client_tls_no_cert.go
+```
+- 非準拠クライアント（CBC/非AEAD のみ）
+```
+go run ./01_tls/client_tls_bad_cipher.go
+```
+- 非準拠クライアント（TLS1.1 以下）
+```
+go run ./01_tls/client_tls_old_version.go
+```
+
+### 相互 TLS: 02_mtls
+
+- サーバー起動
+```
+go run ./02_mtls/server_mtls.go
+```
+- クライアント
+```
+go run ./02_mtls/client_mtls.go
+```
