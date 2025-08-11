@@ -24,6 +24,13 @@ ch07/02_tls/
       server.crt
     csr/                     # サーバーの証明書署名要求（CSR）を格納
       server.csr
+  client/
+    private/                 # クライアント秘密鍵 (コミット対象外推奨)
+      client.key
+    certs/                   # クライアントの公開証明書を格納
+      client.crt
+    csr/                     # クライアントの証明書署名要求（CSR）を格納
+      client.csr
 ```
 
 注意:
@@ -58,6 +65,18 @@ $ openssl req -new -nodes -sha256 -key server/private/server.key -out server/csr
 $ openssl x509 -req -days 365 -in server/csr/server.csr -sha256 -out server/certs/server.crt -CA ca/certs/ca.crt -CAkey ca/private/ca.key -CAcreateserial -extfile ./conf/openssl.cnf -extensions Server
 ```
 
+クライアント用（クライアント証明書）:
+
+```
+# 256ビットの楕円曲線デジタル署名アルゴリズム (ECDSA) のクライアント用秘密鍵を作成
+$ openssl genpkey -algorithm ec -pkeyopt ec_paramgen_curve:prime256v1 -out client/private/client.key
+
+# 証明書署名要求(CSR)を作成
+$ openssl req -new -nodes -sha256 -key client/private/client.key -out client/csr/client.csr -config conf/openssl.cnf
+
+# 証明書を自分の秘密鍵で署名して作成
+$ openssl x509 -req -days 365 -in client/csr/client.csr -sha256 -out client/certs/client.crt -CA ca/certs/ca.crt -CAkey ca/private/ca.key -CAcreateserial -extfile ./conf/openssl.cnf -extensions Client
+```
 
 ## サーバーの実行
 
