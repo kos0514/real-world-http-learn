@@ -9,6 +9,22 @@ import (
 	"os"
 )
 
+// TLS バージョンを人が読める文字列に変換（クライアント側）
+func tlsVersionNameClient(v uint16) string {
+	switch v {
+	case tls.VersionTLS13:
+		return "TLS1.3"
+	case tls.VersionTLS12:
+		return "TLS1.2"
+	case tls.VersionTLS11:
+		return "TLS1.1"
+	case tls.VersionTLS10:
+		return "TLS1.0"
+	default:
+		return "unknown"
+	}
+}
+
 // 自前の CA 証明書を信頼して HTTPS に接続する最小クライアント。
 //   - ch07/02_tls/ca/certs/ca.crt を RootCAs に読み込み、サーバー証明書の検証を有効にします。
 //   - SNI/ホスト名検証については、tls.Config.ServerName に "localhost" を明示します
@@ -45,6 +61,22 @@ func main() {
 		panic(err)
 	}
 	defer resp.Body.Close()
+
+	// 可視化: 交渉結果の TLS 情報をログ出力
+	if resp.TLS != nil {
+		log.Printf("[TLS][client] version=%s cipher=%s alpn=%q sni=%q resumed=%v verifiedChains=%d",
+			tlsVersionNameClient(resp.TLS.Version),
+			tls.CipherSuiteName(resp.TLS.CipherSuite),
+			resp.TLS.NegotiatedProtocol,
+			resp.TLS.ServerName,
+			resp.TLS.DidResume,
+			len(resp.TLS.VerifiedChains),
+		)
+		if len(resp.TLS.PeerCertificates) > 0 {
+			log.Printf("[TLS][client] server cert subject=%s", resp.TLS.PeerCertificates[0].Subject.String())
+		}
+	}
+
 	dump, err := httputil.DumpResponse(resp, true)
 	if err != nil {
 		panic(err)

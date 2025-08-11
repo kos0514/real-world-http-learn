@@ -45,7 +45,7 @@ $ openssl req -new -sha256 -key ca/private/ca.key -out ca/csr/ca.csr -config con
 $ openssl x509 -in ca/csr/ca.csr -days 365 -req -signkey ca/private/ca.key -sha256 -out ca/certs/ca.crt -extfile ./conf/openssl.cnf -extensions CA
 ```
 
-サーバー用（Common Nameには localhost　を指定）:
+サーバー用（Common Nameには localhostを指定）:
 
 ```
 # 256ビットの楕円曲線デジタル署名アルゴリズム (ECDSA) のサーバー秘密鍵を作成
@@ -67,3 +67,26 @@ $ openssl x509 -req -days 365 -in server/csr/server.csr -sha256 -out server/cert
 cd ch07/02_tls
 go run ./server_tls.go
 ```
+
+## TLS 可視化ログ
+
+- サーバー側（server_tls.go）
+  - 各リクエストで、交渉された TLS の情報をログ出力します。
+  - 出力例のキー: version, cipher, alpn, sni, resumed, peerCerts, client cert subject（あれば）。
+- クライアント側（client_tls_with_cert.go）
+  - 応答受信後に、交渉結果の TLS 情報をログ出力します。
+  - 出力例のキー: version, cipher, alpn, sni, resumed, verifiedChains, server cert subject。
+
+実行例:
+
+```
+# サーバー
+cd ch07/02_tls
+go run ./server_tls.go
+
+# クライアント（別シェルで）
+cd ch07/02_tls
+go run ./client_tls_with_cert.go
+```
+
+これらのログにより、TLS バージョンや暗号スイート、SNI、セッション再開の有無などが簡単に可視化できます。
