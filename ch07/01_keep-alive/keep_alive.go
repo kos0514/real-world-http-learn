@@ -1,4 +1,4 @@
-// ch07/keep_alive.go - Learning sample for HTTP Keep-Alive (connection reuse)
+// ch07/keep_alive.go - HTTP Keep-Alive（接続再利用）学習用サンプル
 package main
 
 import (
@@ -12,47 +12,47 @@ import (
 	"time"
 )
 
-// This sample is a minimal HTTP/1.1 client to observe Keep-Alive (connection reuse).
+// このサンプルは、Keep-Alive（接続再利用）を観察するための最小限の HTTP/1.1 クライアントです。
 //
-// Explanation (What is Keep-Alive):
-// - When sending multiple requests to the same server, you can reuse an existing TCP connection to avoid handshake costs.
-// - Go's http.Transport enables persistent connections by default; only connections whose response bodies are fully read and closed are returned to the pool for reuse.
-// - This sample uses httptrace's GotConn to observe fields like Reused, WasIdle, and IdleTime.
+// 解説（Keep-Alive とは）:
+// - 同じサーバーに複数のリクエストを送る際、既存の TCP 接続を再利用してハンドシェイクのコストを省けます。
+// - Go の http.Transport は既定で永続接続を有効にします。レスポンスボディを最後まで読み取り Close された接続のみが、再利用のためにプールへ戻されます。
+// - このサンプルは httptrace の GotConn を用いて、Reused / WasIdle / IdleTime などのフィールドを観察します。
 //
-// Preconditions for reuse:
-// - Always read resp.Body to EOF and then Close it (this code uses io.ReadAll and defer Close).
-// - Do not explicitly send "Connection: close".
-// - Ensure the server/client idle timeouts are aligned.
+// 再利用の前提条件:
+// - resp.Body を EOF まで読み、その後に Close すること（このコードでは io.ReadAll と defer Close を使用）。
+// - 明示的に "Connection: close" を送らないこと。
+// - サーバー／クライアントのアイドルタイムアウト設定を適切に揃えること。
 //
-// How to run:
-//  1. Start the simple server in this repo (e.g., `go run server.go`)
-//  2. In another terminal, run this program (`go run ./ch07`)
-//  3. Observe the logs to see whether the same connection is reused across requests.
+// 実行方法:
+//  1. このリポジトリの簡易サーバーを起動（例: `go run server.go`）
+//  2. 別のターミナルで本プログラムを実行（`go run ./ch07`）
+//  3. ログを確認し、同じ接続がリクエスト間で再利用されているか観察する。
 //
-// Environment variables:
+// 環境変数:
 //
-//	KEEP_ALIVE_URL: Target URL (defaults to "http://localhost:18888")
+//	KEEP_ALIVE_URL: 対象 URL（既定は "http://localhost:18888"）
 func main() {
 	url := os.Getenv("KEEP_ALIVE_URL")
 	if url == "" {
 		url = "http://localhost:18888"
 	}
 
-	// Transport with Keep-Alive enabled (enabled by default)
+	// Keep-Alive を有効にした Transport（デフォルトで有効）
 	transport := &http.Transport{
-		// Set generous limits for concurrent and idle connections
+		// 同時接続およびアイドル接続の上限を広めに設定
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 10,
 		IdleConnTimeout:     90 * time.Second,
-		// DisableKeepAlives: false, // default is false (Keep-Alive enabled)
+		// DisableKeepAlives: false, // 既定は false（Keep-Alive 有効）
 	}
 
 	client := &http.Client{Transport: transport, Timeout: 10 * time.Second}
 
-	// Send multiple GETs to observe connection reuse
+	// 接続再利用を観察するために複数回の GET を送信
 	for i := 1; i <= 5; i++ {
 		func(i int) {
-			// Use httptrace to capture connection acquisition info
+			// httptrace を使って接続取得時の情報を取得する
 			var gotConnInfo httptrace.GotConnInfo
 			trace := &httptrace.ClientTrace{
 				GotConn: func(info httptrace.GotConnInfo) {
@@ -60,28 +60,28 @@ func main() {
 				},
 			}
 
-			// Create a context with the trace for this request
+			// このリクエスト用のトレースを含む context を作成
 			ctx := httptrace.WithClientTrace(context.Background(), trace)
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 			if err != nil {
 				log.Fatalf("failed to create request: %v", err)
 			}
 
-			// Perform the request
+			// リクエストを実行
 			resp, err := client.Do(req)
 			if err != nil {
 				log.Fatalf("http request failed: %v", err)
 			}
-			// Always close the body when leaving this scope
+			// このスコープを抜ける際に必ず Body を Close する
 			defer resp.Body.Close()
 
-			// Read the entire response body
+			// レスポンスボディを最後まで読み込む
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				log.Fatalf("failed to read response body: %v", err)
 			}
 
-			// Print only the first 80 bytes as a snippet
+			// 先頭 80 バイトのみをスニペットとして表示
 			snippet := string(body)
 			if len(snippet) > 80 {
 				snippet = snippet[:80] + "..."
@@ -91,7 +91,7 @@ func main() {
 			fmt.Printf("[%d] body: %s\n", i, snippet)
 		}(i)
 
-		// Wait a moment before the next request to create an idle period
+		// アイドル期間を作るため、次のリクエスト前に少し待機
 		time.Sleep(300 * time.Millisecond)
 	}
 
