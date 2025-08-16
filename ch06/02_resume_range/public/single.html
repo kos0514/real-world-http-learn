@@ -1,0 +1,93 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>単一範囲で積み上げて 1 ファイルに結合</title>
+<h1>単一範囲（Range: bytes=A-B）を積み上げて 1 ファイルに結合</h1>
+<p>
+  このページでは、単一範囲の Range リクエストを「何度か押して」少しずつ取得し、最後に 1 つのファイルに結合してダウンロードする体験ができます。
+</p>
+<ol>
+  <li>「セッション開始」で HEAD /file からサイズと ETag を取得し、巨大バッファを準備</li>
+  <li>「次のチャンクを取得」を押すたびに bytes=A-B の単一範囲を取得し、バッファの該当位置に書き込み</li>
+  <li>十分に埋まったら「結合してダウンロード」で 1 ファイルとして保存</li>
+</ol>
+<div style="margin:12px 0;padding:10px;border:1px solid #ccc;border-radius:6px;">
+  <label>チャンクサイズ(KB): <input id="single-chunk" type="number" value="1024"></label>
+  <button id="single-init">セッション開始（HEAD /file）</button>
+  <button id="single-fetch-next">次のチャンクを取得</button>
+  <button id="single-download">結合してダウンロード</button>
+  <button id="single-reset">リセット</button>
+</div>
+<pre id="single-status" style="white-space:pre-wrap;background:#111;color:#ddd;padding:12px;border-radius:6px;"></pre>
+<script>
+(function(){
+  const statusEl = document.getElementById('single-status');
+  const chunkKB = document.getElementById('single-chunk');
+  const btnInit = document.getElementById('single-init');
+  const btnNext = document.getElementById('single-fetch-next');
+  const btnSave = document.getElementById('single-download');
+  const btnReset = document.getElementById('single-reset');
+
+  let size=0, etag='', buf=null, gotBytes=0, nextStart=0;
+
+  function log(msg){ statusEl.textContent = msg + '\n' + statusEl.textContent; }
+  async function headInfo(){
+    const resp = await fetch('/file', {method:'HEAD'});
+    return {
+      size: Number(resp.headers.get('Content-Length')||'0'),
+      etag: resp.headers.get('ETag'),
+      acc: resp.headers.get('Accept-Ranges')
+    };
+  }
+  async function fetchRange(start, end){
+    const hdrs = new Headers();
+    hdrs.set('Range', `bytes=${start}-${end}`);
+    if(etag) hdrs.set('If-Range', etag); // 再開の整合性チェック
+    const resp = await fetch('/file', {headers: hdrs});
+    if(resp.status !== 206) {
+      const ab = await resp.arrayBuffer();
+      buf = new Uint8Array(ab);
+      size = buf.byteLength; gotBytes = size; nextStart = size;
+      log(`200 全体受領: ${size} bytes（If-Range 不一致の可能性）`);
+      return;
+    }
+    const part = new Uint8Array(await resp.arrayBuffer());
+    buf.set(part, start);
+    gotBytes += part.byteLength;
+    log(`受信: ${start}-${end} (${part.byteLength} bytes), 進捗 ${gotBytes}/${size}`);
+  }
+
+  btnInit.onclick = async ()=>{
+    const info = await headInfo();
+    if(info.acc !== 'bytes'){ log('警告: Range 非対応の可能性があります'); }
+    size = info.size; etag = info.etag;
+    buf = new Uint8Array(size);
+    gotBytes = 0; nextStart = 0;
+    log(`初期化: size=${size}, ETag=${etag}`);
+  };
+
+  btnNext.onclick = async ()=>{
+    if(!buf){ log('先にセッション開始してください'); return; }
+    if(nextStart >= size){ log('すべて取得済み'); return; }
+    const chunk = Math.max(1, Number(chunkKB.value)||1024) * 1024;
+    const start = nextStart;
+    const end = Math.min(start + chunk - 1, size - 1);
+    nextStart = end + 1;
+    await fetchRange(start, end);
+  };
+
+  btnSave.onclick = ()=>{
+    if(!buf){ log('バッファがありません'); return; }
+    if(gotBytes < size){ log(`未取得が残っています（${gotBytes}/${size}）。それでも作成します。`); }
+    const blob = new Blob([buf], {type:'application/octet-stream'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'file_single.bin';
+    a.click();
+  };
+
+  btnReset.onclick = ()=>{
+    size=0; etag=''; buf=null; gotBytes=0; nextStart=0;
+    statusEl.textContent='';
+  };
+})();
+</script>

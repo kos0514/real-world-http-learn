@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>If-Range デモ</title>
+<h1>If-Range（一致→206 / 不一致→200）</h1>
+<ol>
+  <li>「現在の ETag を取得」を押す</li>
+  <li>「一致で 206」を押す（Range:0-1023 + If-Range:ETag）</li>
+  <li>「ETag を変更」→ 「不一致で 200」を押す</li>
+</ol>
+<button id="b-head">現在の ETag を取得（HEAD /file）</button>
+<button id="b-ok">一致で 206</button>
+<button id="b-flip">ETag を変更（/flip_etag）</button>
+<button id="b-ng">不一致で 200</button>
+<pre id="out" style="white-space:pre-wrap;background:#111;color:#ddd;padding:12px;border-radius:6px;"></pre>
+<script>
+const out = document.getElementById('out'); let etag='';
+function log(...a){ out.textContent += a.join(' ')+'\n'; }
+function show(resp){ const keys=['status','Content-Length','Content-Range','Accept-Ranges','ETag','Last-Modified','Content-Type','Content-Encoding']; log('---'); log('status:', resp.status, resp.statusText); for(const k of keys){ log(k+':', resp.headers.get(k)); } }
+
+document.getElementById('b-head').onclick = async ()=>{ const r=await fetch('/file',{method:'HEAD'}); etag=r.headers.get('ETag'); show(r); log('ETag=', etag); };
+
+document.getElementById('b-ok').onclick = async ()=>{ const r=await fetch('/file',{headers:{'Range':'bytes=0-1023','If-Range':etag}}); show(r); log('bytes=',(await r.arrayBuffer()).byteLength); };
+
+document.getElementById('b-flip').onclick = async ()=>{ log((await (await fetch('/flip_etag')).text()).trim()); };
+
+document.getElementById('b-ng').onclick = async ()=>{ const r=await fetch('/file',{headers:{'Range':'bytes=0-1023','If-Range':etag}}); show(r); log('bytes=',(await r.arrayBuffer()).byteLength); };
+</script>

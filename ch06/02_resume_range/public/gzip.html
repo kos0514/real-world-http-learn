@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8"><title>gzip Range</title>
+<h1>gzip 応答の Range</h1>
+<p>/file_gzip は Content-Encoding: gzip を返します。Range は「圧縮後のバイト列」に対して適用されます。</p>
+<button id="b1">bytes=0-1023</button>
+<pre id="out" style="white-space:pre-wrap;background:#111;color:#ddd;padding:12px;border-radius:6px;"></pre>
+<script>
+const out=document.getElementById('out'); function log(...a){ out.textContent+=a.join(' ')+'\n'; }
+function show(resp){ const keys=['status','Content-Length','Content-Range','Content-Encoding']; log('---'); log('status:', resp.status, resp.statusText); for(const k of keys){ log(k+':', resp.headers.get(k)); } }
+
+document.getElementById('b1').onclick=async()=>{ const r=await fetch('/file_gzip',{headers:{'Range':'bytes=0-1023'}}); show(r); log('bytes=',(await r.arrayBuffer()).byteLength); };
+</script>

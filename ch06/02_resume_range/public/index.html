@@ -1,0 +1,102 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ch06/02 Resume Range Demo</title>
+<h1>HTTP Range / If-Range デモ</h1>
+<p>
+  このページから Range リクエストをブラウザだけで体験できます。開発者ツールの
+  Network タブでステータスやレスポンスヘッダ（Content-Range, Content-Length など）も確認してください。
+</p>
+<p>
+  詳細解説ページ: 
+  <a href="/public/single.html">単一範囲</a> / 
+  <a href="/public/multipart.html">複数範囲</a> / 
+  <a href="/public/if-range.html">If-Range</a> / 
+  <a href="/public/416.html">416</a> / 
+  <a href="/public/none.html">Accept-Ranges: none</a> / 
+  <a href="/public/gzip.html">gzip Range</a>
+</p>
+<p>
+  <a href="/public/parallel.html">並列ダウンロード UI へ →</a>
+</p>
+<hr>
+<section>
+  <h2>単一範囲（bytes=0-1023）</h2>
+  <button id="btn-single">Fetch</button>
+</section>
+<section>
+  <h2>末尾 1000 バイト（bytes=-999）</h2>
+  <button id="btn-tail">Fetch</button>
+</section>
+<section>
+  <h2>複数範囲（bytes=500-999,7000-7999）</h2>
+  <button id="btn-multi">Fetch</button>
+</section>
+<section>
+  <h2>If-Range: 一致 → 206 / 不一致 → 200</h2>
+  <button id="btn-ifrange-ok">ETag一致で 206</button>
+  <button id="btn-ifrange-ng">ETag不一致にする（/flip_etag 後に実行）</button>
+  <button id="btn-flip">/flip_etag を呼ぶ</button>
+</section>
+<section>
+  <h2>416 を発生させる（bytes=999999999-）</h2>
+  <button id="btn-416">Fetch</button>
+</section>
+<section>
+  <h2>Accept-Ranges: none の挙動</h2>
+  <button id="btn-none">/file_none に Range を投げる</button>
+</section>
+<section>
+  <h2>gzip 応答での Range</h2>
+  <button id="btn-gzip">/file_gzip の bytes=0-1023</button>
+</section>
+<hr>
+<pre id="out" style="white-space:pre-wrap;background:#111;color:#ddd;padding:12px;border-radius:6px;"></pre>
+<script>
+const out = document.getElementById('out');
+function log(...a){ out.textContent += a.join(' ') + '\n'; }
+function showHeaders(resp){
+  const keys = ['status','Content-Length','Content-Range','Accept-Ranges','ETag','Last-Modified','Content-Type','Content-Encoding'];
+  log('--- response ---');
+  log('status:', resp.status, resp.statusText);
+  for(const k of keys){ log(k+':', resp.headers.get(k)); }
+}
+async function fetchRange(path, range, extraHeaders={}){
+  const headers = new Headers(extraHeaders);
+  if(range) headers.set('Range', range);
+  const resp = await fetch(path, {headers});
+  showHeaders(resp);
+  const buf = await resp.arrayBuffer();
+  log('received bytes:', buf.byteLength);
+}
+
+document.getElementById('btn-single').onclick = () => fetchRange('/file', 'bytes=0-1023');
+document.getElementById('btn-tail').onclick = () => fetchRange('/file', 'bytes=-999');
+document.getElementById('btn-multi').onclick = () => fetchRange('/file', 'bytes=500-999,7000-7999');
+
+document.getElementById('btn-ifrange-ok').onclick = async () => {
+  const head = await fetch('/file', {method:'HEAD'});
+  const etag = head.headers.get('ETag');
+  log('HEAD ETag:', etag);
+  await fetchRange('/file', 'bytes=0-1023', {'If-Range': etag});
+};
+
+document.getElementById('btn-ifrange-ng').onclick = async () => {
+  const head = await fetch('/file', {method:'HEAD'});
+  const oldEtag = head.headers.get('ETag');
+  log('Old ETag:', oldEtag);
+  // flip 後に古い ETag を付与 → 200 Full を期待
+  await fetch('/flip_etag');
+  await fetchRange('/file', 'bytes=0-1023', {'If-Range': oldEtag});
+};
+
+document.getElementById('btn-flip').onclick = async () => {
+  const t = await (await fetch('/flip_etag')).text();
+  log(t.trim());
+};
+
+document.getElementById('btn-416').onclick = () => fetchRange('/file', 'bytes=999999999-');
+
+document.getElementById('btn-none').onclick = () => fetchRange('/file_none', 'bytes=0-1023');
+
+document.getElementById('btn-gzip').onclick = () => fetchRange('/file_gzip', 'bytes=0-1023');
+</script>

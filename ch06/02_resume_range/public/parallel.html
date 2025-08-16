@@ -1,0 +1,94 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Parallel Range Download</title>
+<h1>並列 Range ダウンロード</h1>
+<p>HEAD でサイズ/ETag を取得し、チャンク分割して並列に Range 取得、最後に結合して保存します。</p>
+<label>ターゲット: 
+  <select id="target">
+    <option value="/file">/file</option>
+    <option value="/file_gzip">/file_gzip (圧縮後)</option>
+  </select>
+</label>
+<br>
+<label>チャンクサイズ (KB): <input id="chunkKB" type="number" value="1024"></label>
+<label>並列数: <input id="concurrency" type="number" value="4"></label>
+<button id="start">開始</button>
+<button id="cancel">中断</button>
+<pre id="log" style="white-space:pre-wrap;background:#111;color:#ddd;padding:12px;border-radius:6px;"></pre>
+<script>
+const $ = (s)=>document.querySelector(s);
+const log = (...a)=>{ $('#log').textContent += a.join(' ') + '\n'; };
+let abort = false;
+$('#cancel').onclick = ()=>{ abort = true; log('キャンセル要求'); };
+
+async function headInfo(url){
+  const resp = await fetch(url, {method:'HEAD'});
+  return {
+    size: Number(resp.headers.get('Content-Length')||'0'),
+    etag: resp.headers.get('ETag'),
+    acc: resp.headers.get('Accept-Ranges')
+  };
+}
+
+async function getRange(url, start, end, extra={}){
+  const h = new Headers(extra);
+  h.set('Range', `bytes=${start}-${end}`);
+  const resp = await fetch(url, {headers:h});
+  if(!resp.ok && resp.status !== 206) throw new Error('HTTP '+resp.status);
+  return new Uint8Array(await resp.arrayBuffer());
+}
+
+function makePlan(size, chunk){
+  const ranges = [];
+  for(let s=0; s < size; s += chunk){
+    let e = Math.min(s+chunk-1, size-1);
+    ranges.push([s,e]);
+  }
+  return ranges;
+}
+
+async function run(){
+  abort = false;
+  const url = $('#target').value;
+  const chunkSize = Math.max(1, Number($('#chunkKB').value)||1024) * 1024;
+  const cc = Math.max(1, Number($('#concurrency').value)||4);
+  const info = await headInfo(url);
+  log('Content-Length:', info.size, 'ETag:', info.etag, 'Accept-Ranges:', info.acc);
+  if(info.acc !== 'bytes'){
+    log('警告: このターゲットは Range を受け付けないかもしれません。');
+  }
+  const plan = makePlan(info.size, chunkSize);
+  log('chunks:', plan.length, 'chunkSize:', chunkSize);
+
+  const result = new Uint8Array(info.size);
+  let idx = 0;
+  let active = 0;
+  let done = 0;
+  return await new Promise((resolve, reject)=>{
+    const next = async ()=>{
+      if(abort){ reject(new Error('aborted')); return; }
+      if(idx >= plan.length){ if(active===0){ resolve(); } return; }
+      const [s,e] = plan[idx++];
+      active++;
+      try{
+        const part = await getRange(url, s, e, {'If-Range': info.etag});
+        result.set(part, s);
+        done++;
+        if(done%10===0 || done===plan.length) log(`progress: ${done}/${plan.length}`);
+      }catch(err){ reject(err); return; }
+      finally{ active--; }
+      next();
+    };
+    for(let i=0;i<cc;i++) next();
+  }).then(()=>{
+    const blob = new Blob([result], {type:'application/octet-stream'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = url.replace('/','') + '.bin';
+    a.click();
+    log('ダウンロード生成完了');
+  }).catch(err=>{ log('エラー:', err.message||err); });
+}
+
+$('#start').onclick = run;
+</script>

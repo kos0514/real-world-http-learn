@@ -1,0 +1,111 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>複数範囲を積み上げて 1 ファイルに結合</title>
+<h1>複数範囲（multipart/byteranges）を繰り返し取得して 1 ファイルに結合</h1>
+<p>
+  このページでは、1 回のリクエストで複数の範囲を取得し（multipart/byteranges）、
+  それを繰り返して全体を埋めていく様子を体験できます。
+</p>
+<p>
+  注意: ここでの multipart パースは教材用の簡易版です。厳密には ArrayBuffer で境界を解析すべきです。
+</p>
+<div style="margin:12px 0;padding:10px;border:1px solid #ccc;border-radius:6px;">
+  <button id="multi-init">セッション開始（HEAD /file）</button>
+  <button id="multi-req-1">範囲セット1: bytes=0-1023,1048576-1049599</button>
+  <button id="multi-req-2">範囲セット2: bytes=2097152-2098175,7340032-7341055</button>
+  <button id="multi-download">結合してダウンロード</button>
+  <button id="multi-reset">リセット</button>
+</div>
+<pre id="multi-status" style="white-space:pre-wrap;background:#111;color:#ddd;padding:12px;border-radius:6px;"></pre>
+<script>
+(function(){
+  const st = document.getElementById('multi-status');
+  let size=0, etag='', buf=null, received=0;
+  // 受領必須の範囲（このページの2つのボタンに対応）
+  const REQUIRED = [
+    [0,1023], [1048576,1049599], // 範囲セット1
+    [2097152,2098175], [7340032,7341055] // 範囲セット2
+  ];
+  const requiredKeys = new Set(REQUIRED.map(r=>`${r[0]}-${r[1]}`));
+  let gotKeys = new Set();
+  let fullBodyReceived = false; // 200 OK 全体受領時に true
+
+  function log(m){ st.textContent += m + '\n'; }
+  function hasAllRequired(){
+    for(const k of requiredKeys){ if(!gotKeys.has(k)) return false; }
+    return true;
+  }
+  function progressText(){
+    const need = requiredKeys.size;
+    const have = [...gotKeys].length;
+    return `必須範囲 進捗: ${have}/${need} (${Math.floor(have/need*100)}%)`;
+  }
+
+  async function headInfo(){
+    const resp = await fetch('/file', {method:'HEAD'});
+    return { size: Number(resp.headers.get('Content-Length')||'0'), etag: resp.headers.get('ETag') };
+  }
+
+  async function fetchMulti(rangesStr){
+    const headers = new Headers();
+    headers.set('Range', 'bytes=' + rangesStr);
+    if(etag) headers.set('If-Range', etag);
+    const resp = await fetch('/file', {headers});
+    if(resp.status !== 206){
+      const ab = await resp.arrayBuffer();
+      buf = new Uint8Array(ab); size = buf.byteLength; received = size; fullBodyReceived = true;
+      // 200 full を受領した場合のみ、全結合ダウンロードを許可する
+      log(`200 全体受領: ${size} bytes → 必須範囲は満たしたものとして扱います`);
+      return;
+    }
+    const ct = resp.headers.get('Content-Type') || '';
+    const m = ct.match(/boundary=([^;]+)/i);
+    if(!m){ log('boundary 不明'); return; }
+    const boundary = '--' + m[1];
+
+    const raw = new Uint8Array(await resp.arrayBuffer());
+    // 教材用: テキスト化して boundary split（厳密にはバイナリ破損の可能性あり）
+    const text = new TextDecoder().decode(raw);
+    const parts = text.split(boundary).map(s=>s.trim()).filter(s=>s && s !== '--');
+    for(const part of parts){
+      const sep = part.indexOf('\r\n\r\n');
+      if(sep < 0) continue;
+      const headerText = part.slice(0, sep);
+      const bodyText = part.slice(sep+4);
+      const cr = /Content-Range:\s*bytes\s+(\d+)-(\d+)\/(\d+)/i.exec(headerText);
+      if(!cr){ continue; }
+      const start = Number(cr[1]), end = Number(cr[2]);
+      const bodyBytes = new TextEncoder().encode(bodyText); // 教材用（厳密には非推奨）
+      const view = new Uint8Array(bodyBytes.buffer);
+      const length = end - start + 1;
+      buf.set(view.slice(0, length), start);
+      received += length;
+      const key = `${start}-${end}`;
+      if(requiredKeys.has(key)) gotKeys.add(key);
+      log(`part 受領: ${start}-${end} (${length} bytes) / ${progressText()}`);
+    }
+  }
+
+  document.getElementById('multi-init').onclick = async ()=>{
+    const info = await headInfo();
+    size = info.size; etag = info.etag; buf = new Uint8Array(size); received = 0; st.textContent='';
+    gotKeys = new Set(); fullBodyReceived = false;
+    log(`初期化: size=${size}, ETag=${etag}\n${progressText()}`);
+  };
+  document.getElementById('multi-req-1').onclick = ()=> fetchMulti('0-1023,1048576-1049599');
+  document.getElementById('multi-req-2').onclick = ()=> fetchMulti('2097152-2098175,7340032-7341055');
+  document.getElementById('multi-download').onclick = ()=>{
+    if(!buf){ log('先に初期化してください'); return; }
+    if(!fullBodyReceived && !hasAllRequired()){
+      log('まだ必須範囲が揃っていません。範囲セット1と範囲セット2を取得してからダウンロードしてください。');
+      log(progressText());
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([buf], {type:'application/octet-stream'}));
+    a.download = 'file_multi.bin';
+    a.click();
+  };
+  document.getElementById('multi-reset').onclick = ()=>{ size=0; etag=''; buf=null; received=0; gotKeys=new Set(); fullBodyReceived=false; st.textContent=''; };
+})();
+</script>

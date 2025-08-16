@@ -1,0 +1,13 @@
+<!doctype html>
+<meta charset="utf-8"><title>416 デモ</title>
+<h1>416 Range Not Satisfiable</h1>
+<p>存在しない範囲（例: bytes=999999999-）を送って 416 と Content-Range: bytes */total を確認します。</p>
+<input id="rng" value="bytes=999999999-" style="width:260px;">
+<button id="go">送信</button>
+<pre id="out" style="white-space:pre-wrap;background:#111;color:#ddd;padding:12px;border-radius:6px;"></pre>
+<script>
+const out=document.getElementById('out'); function log(...a){ out.textContent+=a.join(' ')+'\n'; }
+function show(resp){ const keys=['status','Content-Length','Content-Range']; log('---'); log('status:', resp.status, resp.statusText); for(const k of keys){ log(k+':', resp.headers.get(k)); } }
+
+document.getElementById('go').onclick=async()=>{ const r=await fetch('/file',{headers:{'Range':document.getElementById('rng').value}}); show(r); log('body bytes=',(await r.arrayBuffer()).byteLength); };
+</script>
