@@ -1,0 +1,15 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>02 POST JSON</title>
+<h1>POST /echo (application/json)</h1>
+<button id="run">Send</button>
+<pre id="out"></pre>
+<script>
+run.onclick = () => {
+  var xhr = new XMLHttpRequest();
+  xhr.open("POST", "/echo");
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.onload = () => out.textContent = xhr.responseText;
+  xhr.send(JSON.stringify({foo: "bar", t: Date.now()}));
+};
+</script>

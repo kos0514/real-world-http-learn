@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>03 FormData</title>
+<h1>FormData /upload</h1>
+<input type="file" id="f" multiple>
+<input placeholder="note" id="note">
+<button id="send">Upload</button>
+<pre id="out"></pre>
+<script>
+send.onclick = () => {
+  const fd = new FormData();
+  for (const file of f.files) fd.append('file', file);
+  fd.append('note', note.value || '');
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/upload');
+  xhr.onload = () => out.textContent = xhr.responseText;
+  xhr.send(fd);
+};
+</script>

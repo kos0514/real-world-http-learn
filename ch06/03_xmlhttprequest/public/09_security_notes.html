@@ -1,0 +1,73 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>09 Security</title>
+<h1>XMLHttpRequest のセキュリティ注意点</h1>
+<ul>
+  <li>Same Origin Policy により、スクリプトから送れる先は既定で同一オリジンのみ</li>
+  <li>withCredentials=true の場合、CORS 応答で Access-Control-Allow-Credentials と具体的な Origin が必要</li>
+  <li>Forbidden Header（例: Accept-Encoding, Cookie など）は setRequestHeader できない</li>
+  <li>HttpOnly クッキーは document.cookie から読めない（/json は demo_session を HttpOnly でセット）</li>
+  <li>非 HttpOnly クッキー（/set_cookie）→ document.cookie で見える。/clear_cookie で削除</li>
+</ul>
+<p>
+  実演:
+  <button id="set">/set_cookie</button>
+  <button id="clr">/clear_cookie</button>
+  <button id="show">document.cookie</button>
+</p>
+<pre id="out"></pre>
+<script>
+set.onclick = () => fetch('/set_cookie').then(() => out.textContent = 'set_cookie done');
+clr.onclick = () => fetch('/clear_cookie').then(() => out.textContent = 'cleared');
+show.onclick = () => out.textContent = 'document.cookie = ' + document.cookie;
+</script>
+
+
+<h2>HttpOnly クッキーの実演</h2>
+<ol>
+  <li>「GET /json (HttpOnly 付与)」で demo_session=... が HttpOnly として Set-Cookie されます</li>
+  <li>「document.cookie を表示」しても demo_session は見えません（HttpOnly のため）</li>
+  <li>「/echo へ送信内容を確認」を押すと、サーバ側では demo_session が届いていることが分かります</li>
+</ol>
+<p>
+  <button id="getJson">GET /json (HttpOnly 付与)</button>
+  <button id="showDocCookie2">document.cookie を表示</button>
+  <button id="checkEcho">/echo へ送信内容を確認</button>
+  <button id="clrSession">/clear_session (HttpOnly demo_session を削除)</button>
+</p>
+<pre id="out2"></pre>
+<pre id="echoOut"></pre>
+<script>
+  // HttpOnly セット（/json は demo_session を HttpOnly で付与）
+  getJson.onclick = () => {
+    fetch('/json', { credentials: 'same-origin' })
+      .then(r => {
+        // DevTools の Network タブで Set-Cookie: demo_session=...; HttpOnly を確認できます
+        return r.json();
+      })
+      .then(j => {
+        out2.textContent = 'GET /json 応答:\n' + JSON.stringify(j, null, 2) +
+          '\n\n(ヒント) Network タブで Set-Cookie ヘッダ: demo_session=...; HttpOnly を確認してください';
+      })
+      .catch(e => out2.textContent = 'エラー: ' + e);
+  };
+
+  // document.cookie には HttpOnly が出てこない
+  showDocCookie2.onclick = () => {
+    out2.textContent = 'document.cookie = ' + document.cookie +
+      '\n\n注: demo_session は HttpOnly のため表示されません';
+  };
+
+  // 同一オリジンのリクエストでは自動で Cookie が送られる（/echo が cookies を反射）
+  checkEcho.onclick = () => {
+    fetch('/echo', { credentials: 'same-origin' })
+      .then(r => r.json())
+      .then(j => {
+        echoOut.textContent = 'サーバが受け取った cookies:\n' + JSON.stringify(j.cookies, null, 2);
+      })
+      .catch(e => echoOut.textContent = 'エラー: ' + e);
+  };
+
+  // HttpOnly demo_session のクリア（デモのリセット用）
+  clrSession && (clrSession.onclick = () => fetch('/clear_session').then(() => out2.textContent = 'demo_session cleared'))
+</script>

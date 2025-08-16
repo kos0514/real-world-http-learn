@@ -1,0 +1,16 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>04 Custom Headers</title>
+<h1>カスタムヘッダで /echo</h1>
+<button id="run">Send</button>
+<pre id="out"></pre>
+<script>
+run.onclick = () => {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', '/echo?x=1');
+  xhr.setRequestHeader('MyHeader', 'HeaderValue');
+  // Forbidden なヘッダはブラウザがブロック（例: Accept-Encoding 等）
+  xhr.onload = () => out.textContent = xhr.responseText;
+  xhr.send();
+};
+</script>

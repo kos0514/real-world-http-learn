@@ -1,0 +1,85 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>08 CORS</title>
+<h1>CORS</h1>
+<p>同一オリジンでは CORS は不要ですが、このページでは「CORS を想定した応答」を使い、<code>withCredentials</code> の有無による違いを体験できます。</p>
+
+<h2>このページのポイント</h2>
+<ul>
+  <li>左の「/cors/json (ACAO: *)」は <b>資格情報なし</b> の CORS を想定（<code>Access-Control-Allow-Origin: *</code>）。Cookie は送受信しません。</li>
+  <li>右の「/cors/with_credentials」では <b>資格情報あり</b> を想定（<code>withCredentials=true</code>）。サーバは <code>Access-Control-Allow-Origin: &lt;Origin&gt;</code> と <code>Access-Control-Allow-Credentials: true</code> を返し、<code>Set-Cookie: cross_demo=1; HttpOnly</code> を付与します。</li>
+  <li>資格情報ありの CORS では <code>ACAO: *</code> は使えません（具体的な Origin を返す必要があります）。</li>
+</ul>
+
+<h2>確認手順（DevTools を開いて Network / Application を参照）</h2>
+<ol>
+  <li>
+    「/cors/json (ACAO: *)」をクリック
+    <ul>
+      <li>Network タブの Response Headers に <code>Access-Control-Allow-Origin: *</code> が見えます。</li>
+      <li>Application &gt; Cookies に <code>cross_demo</code> は保存されません（資格情報なし）。</li>
+    </ul>
+  </li>
+  <li>
+    「/cors/with_credentials」をクリック
+    <ul>
+      <li>Request 側は <code>withCredentials = true</code>（コードで設定）。</li>
+      <li>Response Headers に <code>Access-Control-Allow-Origin: http://localhost:18063</code>（など具体値）と <code>Access-Control-Allow-Credentials: true</code>。</li>
+      <li>Response Headers に <code>Set-Cookie: cross_demo=1</code>。Application &gt; Cookies に保存されます。</li>
+    </ul>
+  </li>
+</ol>
+
+<p>
+  <button id="any">/cors/json (ACAO: *)</button>
+  <button id="cred">/cors/with_credentials</button>
+</p>
+<pre id="out"></pre>
+<p style="font-size:90%">
+  ヒント: 下の出力は「HTTP ステータス」「レスポンスヘッダ（生）」「本文」を表示します。Cookie の保存有無は DevTools の Application で確認してください。
+</p>
+<script>
+any.onclick = () => {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', '/cors/json');
+  // withCredentials 未設定（= false）
+  xhr.onload = () => {
+    out.textContent = [
+      '[ANY] withCredentials = ' + xhr.withCredentials,
+      '--- Response Headers ---',
+      xhr.getAllResponseHeaders().trim(),
+      '--- Body ---',
+      xhr.status + ' ' + xhr.statusText,
+      xhr.responseText,
+      '',
+      '(メモ) ACAO:* で資格情報なし。Cookie は送られず、Set-Cookie も保存されません。'
+    ].join('\n');
+  };
+  xhr.onerror = () => {
+    out.textContent = 'エラー (ANY)';
+  };
+  xhr.send();
+};
+
+cred.onclick = () => {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', '/cors/with_credentials');
+  xhr.withCredentials = true;
+  xhr.onload = () => {
+    out.textContent = [
+      '[CRED] withCredentials = ' + xhr.withCredentials,
+      '--- Response Headers ---',
+      xhr.getAllResponseHeaders().trim(),
+      '--- Body ---',
+      xhr.status + ' ' + xhr.statusText,
+      xhr.responseText,
+      '',
+      '(メモ) ACAC:true + 具体的 ACAO + Set-Cookie を返すため、Cookie を保存できます（DevTools の Application で cross_demo を確認）'
+    ].join('\n');
+  };
+  xhr.onerror = () => {
+    out.textContent = 'エラー (CRED)';
+  };
+  xhr.send();
+};
+</script>

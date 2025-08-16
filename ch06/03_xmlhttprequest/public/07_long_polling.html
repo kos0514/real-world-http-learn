@@ -1,0 +1,31 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>07 Long Polling</title>
+<h1>ロングポーリング /comet/recv /comet/send</h1>
+<input id="msg" placeholder="message"><button id="send">送信</button>
+<pre id="log"></pre>
+<script>
+function recv(){
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', '/comet/recv', true);
+  xhr.onreadystatechange = function(){
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+        log.textContent += 'recv: ' + xhr.responseText + '\n';
+      }
+      // 204（タイムアウト）含めて再接続
+      recv();
+    }
+  };
+  xhr.send();
+}
+recv();
+
+send.onclick = () => {
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/comet/send');
+  xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+  xhr.onload = () => log.textContent += 'send: ' + xhr.responseText + '\n';
+  xhr.send('msg=' + encodeURIComponent(msg.value));
+};
+</script>

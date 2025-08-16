@@ -1,0 +1,16 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>01 Basic GET</title>
+<h1>Basic GET /json</h1>
+<pre id="out"></pre>
+<script>
+const out = document.getElementById('out');
+var xhr = new XMLHttpRequest();
+xhr.open("GET", "/json", true);
+xhr.onload = function() {
+  out.textContent = xhr.status + "\n" + xhr.getAllResponseHeaders() + "\n" + xhr.responseText;
+  try { console.log(JSON.parse(xhr.responseText)); } catch {}
+};
+xhr.setRequestHeader("MyHeader", "HeaderValue");
+xhr.send();
+</script>

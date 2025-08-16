@@ -1,0 +1,11 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>05 Redirect</title>
+<h1>302 /redirect （→ /json）</h1>
+<pre id="out"></pre>
+<script>
+var xhr = new XMLHttpRequest();
+xhr.open('GET', '/redirect');
+xhr.onload = () => out.textContent = xhr.status + "\n" + xhr.responseText;
+xhr.send();
+</script>

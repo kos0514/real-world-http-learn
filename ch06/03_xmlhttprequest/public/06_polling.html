@@ -1,0 +1,14 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>06 Polling</title>
+<h1>ポーリング /poll</h1>
+<pre id="out"></pre>
+<script>
+let n = 0;
+setInterval(() => {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', '/poll');
+  xhr.onload = () => out.textContent = (++n) + ': ' + xhr.responseText;
+  xhr.send();
+}, 2000);
+</script>
