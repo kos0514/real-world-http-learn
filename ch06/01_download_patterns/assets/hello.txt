@@ -1,0 +1,2 @@
+Hello from a static asset.
+This file is used to demonstrate <a download> behavior.

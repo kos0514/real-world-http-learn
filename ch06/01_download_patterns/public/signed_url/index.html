@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>擬似署名 URL のダウンロード</title>
+<h1>擬似署名 URL のダウンロード</h1>
+<p>
+  このページでは、/api/sign で一時的な URL を発行し、返ってきた URL にアクセスして
+  ファイルをダウンロードする流れ（S3 の Signed URL のような擬似フロー）を体験できます。
+</p>
+<button id="btn">署名URLを取得してダウンロード</button>
+<pre id="log"></pre>
+<script>
+  const log = (m) => document.getElementById('log').textContent += m + "\n";
+
+  document.getElementById('btn').addEventListener('click', async () => {
+    try {
+      // 1) /api/sign で一時URLを発行
+      const res = await fetch('/api/sign?name=' + encodeURIComponent('機密資料.txt'));
+      if (!res.ok) throw new Error('sign 失敗: ' + res.status);
+      const data = await res.json(); // { url: "/api/file?token=...&exp=...&name=..." }
+      log('署名URL: ' + data.url);
+
+      // 2) 動的 <a> でダウンロード開始
+      const a = document.createElement('a');
+      a.href = data.url;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      log('ダウンロードを開始しました');
+    } catch (e) {
+      log('エラー: ' + e.message);
+    }
+  });
+</script>

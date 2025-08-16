@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>JavaScript ダウンロード</title>
+<h1>JavaScript で動的にダウンロード</h1>
+
+<button id="btn">ダウンロード開始</button>
+<pre id="log"></pre>
+
+<script>
+  const log = (m) => document.getElementById('log').textContent += m + "\n";
+
+  document.getElementById('btn').addEventListener('click', async () => {
+    try {
+      const url = "/api/download?name=" + encodeURIComponent("こんにちは.html");
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "hello.html"; // 多くのブラウザはヘッダの filename* を優先
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      log("ダウンロード処理を開始しました");
+    } catch (e) {
+      log("エラー: " + e);
+    }
+  });
+</script>
