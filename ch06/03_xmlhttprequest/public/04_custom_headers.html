@@ -2,6 +2,8 @@
 <meta charset="utf-8">
 <title>04 Custom Headers</title>
 <h1>カスタムヘッダで /echo</h1>
+<p>XHR の <code>setRequestHeader</code> で任意ヘッダを付与する例です。押下すると <code>MyHeader: HeaderValue</code> を付けて /echo に送信し、反射された内容を表示します。</p>
+<p style="font-size:90%">注: 一部の Forbidden ヘッダ（Accept-Encoding, Cookie など）はブラウザにより設定できません。</p>
 <button id="run">Send</button>
 <pre id="out"></pre>
 <script>
