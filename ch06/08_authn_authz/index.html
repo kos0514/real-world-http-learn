@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>6.8 ウェブサイト間で共通の認証・認可プラットフォーム（可視化学習）</title>
+  <style>
+    :root{
+      --bg:#0f172a;        /* slate-900 */
+      --panel:#111827;     /* gray-900 */
+      --muted:#94a3b8;     /* slate-400 */
+      --text:#e5e7eb;      /* gray-200 */
+      --accent:#60a5fa;    /* blue-400 */
+      --accent-2:#34d399;  /* emerald-400 */
+      --warn:#f59e0b;      /* amber-500 */
+      --danger:#f87171;    /* red-400 */
+      --ok:#86efac;        /* green-300 */
+      --border:#1f2937;    /* gray-800 */
+      --chip:#0b1220;
+    }
+    html,body{margin:0;padding:0;background:linear-gradient(180deg,#0b1020 0%, #0f172a 100%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,'Apple Color Emoji','Segoe UI Emoji';line-height:1.6}
+    a{color:var(--accent)}
+    header{position:sticky;top:0;background:rgba(15,23,42,.7);backdrop-filter:saturate(130%) blur(8px);border-bottom:1px solid var(--border);z-index:10}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px}
+    .title{display:flex;gap:12px;align-items:center}
+    .title h1{font-size:20px;margin:0}
+    nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    nav a{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--chip);text-decoration:none;font-size:13px}
+    nav a:hover{border-color:var(--accent)}
+
+    main{max-width:1200px;margin:0 auto;padding:24px;display:grid;grid-template-columns:280px 1fr;gap:24px}
+    @media (max-width: 980px){main{grid-template-columns:1fr}}
+    aside{position:sticky;top:76px;align-self:start}
+    aside .toc{border:1px solid var(--border);background:var(--panel);border-radius:12px;padding:12px}
+    aside .toc h3{margin:8px 8px 4px;font-size:14px;color:var(--muted)}
+    aside .toc a{display:block;padding:6px 10px;margin:2px 0;border-radius:8px;color:var(--text);text-decoration:none;font-size:14px}
+    aside .toc a:hover{background:#0b1220}
+
+    section{border:1px solid var(--border);background:var(--panel);border-radius:16px;padding:20px;margin-bottom:24px}
+    section h3{margin-top:0}
+
+    .chips{display:flex;flex-wrap:wrap;gap:8px}
+    .chip{font-size:12px;padding:4px 8px;border-radius:999px;background:#0a1222;border:1px solid #14213a;color:var(--muted)}
+
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media (max-width: 980px){.grid-2{grid-template-columns:1fr}}
+
+    .card{border:1px solid var(--border);border-radius:12px;padding:12px;background:#0b1220}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .danger{color:var(--danger)}
+
+    details{border:1px dashed var(--border);padding:10px;border-radius:10px;background:#0a1222}
+    details>summary{cursor:pointer;color:var(--accent)}
+
+    .vis{border:1px solid var(--border);border-radius:12px;background:radial-gradient(1200px 400px at 20% -20%, rgba(96,165,250,.12), transparent), #0b1220;padding:16px;position:relative;overflow:hidden}
+    .legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+    .legend span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+    .legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+    .node{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:linear-gradient(180deg,#0e1528, #0b1220);display:inline-block;min-width:120px;text-align:center;position:relative}
+    .node .sub{font-size:12px;color:var(--muted)}
+    .row{display:flex;gap:12px;align-items:center;justify-content:space-between}
+    .arrow{position:relative;padding:8px 12px;border-radius:999px;border:1px dashed #1e293b;color:var(--muted);font-size:12px}
+    .arrow::after{content:"";position:absolute;right:-10px;top:50%;transform:translateY(-50%);border:6px solid transparent;border-left-color:#1e293b}
+
+    .flow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .step{border:1px solid var(--border);padding:8px 10px;border-radius:10px;background:#0a1222}
+    .step.active{border-color:var(--accent);box-shadow:0 0 0 1px rgba(96,165,250,.2) inset}
+
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;background:#0a1222;border:1px solid var(--border);border-bottom-color:#0f172a;padding:2px 6px;border-radius:6px;font-size:12px}
+
+    pre{background:#0a1222;border:1px solid var(--border);border-radius:10px;padding:12px;overflow:auto}
+    code{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-size:12px}
+
+    .badge{font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:#0a1222;color:var(--muted)}
+
+    .jwt{display:grid;grid-template-columns:1fr;gap:8px}
+    .jwt .seg{padding:10px;border-radius:10px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .jwt .h{background:#1e293b} .jwt .p{background:#052e28} .jwt .s{background:#3b1d24}
+    .checklist li{margin:6px 0}
+
+    footer{max-width:1200px;margin:0 auto 60px;padding:8px 24px;color:var(--muted)}
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="title">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 7a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7z" stroke="#60a5fa"/>
+        <path d="M8 10h8M8 14h5" stroke="#34d399"/></svg>
+      <h1>6.8 共通の認証・認可プラットフォーム（視覚で理解）</h1>
+      <span class="badge">HTML学習ページ</span>
+    </div>
+    <nav>
+      <a href="#intro">導入</a>
+      <a href="#terms">用語</a>
+      <a href="#sso">SSO</a>
+      <a href="#kerberos">Kerberos</a>
+      <a href="#saml">SAML</a>
+      <a href="#oauth">OAuth 2.x</a>
+      <a href="#pkce">PKCE</a>
+      <a href="#oidc">OpenID Connect</a>
+      <a href="#jwt">JWT</a>
+      <a href="#pitfalls">落とし穴</a>
+      <a href="#refs">参考資料</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <div class="toc">
+      <h3>目次</h3>
+      <a href="#intro">6.8 なぜ共通基盤が要るのか</a>
+      <a href="#terms">重要用語（認証/認可/フェデレーテッド）</a>
+      <a href="#sso">6.8.1 シングルサインオン</a>
+      <a href="#kerberos">6.8.2 Kerberos認証</a>
+      <a href="#saml">6.8.3 SAML</a>
+      <a href="#oauth">6.8.4 OAuth</a>
+      <a href="#pkce">PKCE（Authorization Codeの強化）</a>
+      <a href="#oidc">6.8.5 OpenID Connect</a>
+      <a href="#jwt">6.8.6 JWT</a>
+      <a href="#pitfalls">6.8.7 実装の落とし穴</a>
+      <a href="#refs">リンク集</a>
+    </div>
+  </aside>
+
+  <div>
+    <section id="intro">
+      <h3>導入: なぜ共通の認証・認可プラットフォームが必要か</h3>
+      <p>
+        多数のWebサービスごとにID/パスワードを作るのはユーザー体験を悪化させ、セキュリティ上も
+        <span class="danger">パスワード使い回し</span>や
+        <span class="danger">リスト型攻撃</span>などのリスクを高めます。
+        そこで「外部の信頼できる基盤」にログインを任せるアプローチが普及しました。
+      </p>
+      <div class="chips">
+        <span class="chip">ユーザー体験の向上（導線の離脱を減らす）</span>
+        <span class="chip">セキュリティ負債の削減</span>
+        <span class="chip">外部データや機能の安全な連携（認可）</span>
+      </div>
+    </section>
+
+    <section id="terms">
+      <h3>重要用語（3行で把握）</h3>
+      <div class="grid-2">
+        <div class="card">
+          <strong>認証 (Authentication)</strong>
+          <p>「誰か」を確かめる。ログイン中の主体が誰なのかを判定。</p>
+        </div>
+        <div class="card">
+          <strong>認可 (Authorization)</strong>
+          <p>「何ができるか」を決める。アクセス権限（スコープ）を付与・制御。</p>
+        </div>
+        <div class="card">
+          <strong>フェデレーテッドログイン</strong>
+          <p>自サービス外のID（Google, Apple など）でログイン。</p>
+        </div>
+        <div class="card">
+          <strong>シングルサインオン (SSO)</strong>
+          <p>一度のサインインで複数システムを横断して利用可。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="sso">
+      <h3>6.8.1 シングルサインオン（SSO）</h3>
+      <p>
+        SSOはプロトコル名ではなく「一度のログインで複数システムが使える」仕組みの総称です。実現方式は複数あります。
+      </p>
+      <div class="vis">
+        <div class="legend">
+          <span><i style="background:#64748b"></i> 社内アプリ</span>
+          <span><i style="background:#60a5fa"></i> 認証サーバー</span>
+        </div>
+        <div class="grid-2">
+          <div>
+            <div class="node" style="min-width:240px">
+              社内ポータル<br><span class="sub">SP (Service Provider)</span>
+            </div>
+            <div class="arrow">認証が必要 → リダイレクト/問い合わせ</div>
+            <div class="node" style="min-width:240px; border-color:#2563eb">
+              認証サーバー/IdP<br><span class="sub">サインイン1回</span>
+            </div>
+          </div>
+          <div>
+            <div class="row">
+              <div class="node">人事システム</div>
+              <div class="node">経費精算</div>
+            </div>
+            <div style="height:10px"></div>
+            <div class="row">
+              <div class="node">ファイル共有</div>
+              <div class="node">社内Wiki</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <details>
+        <summary>SSOの実現パターンの例を見る</summary>
+        <ul>
+          <li>各サービスから中央の認証サーバーへ問い合わせ（ユーザーIDの一元管理）</li>
+          <li>HTTPプロキシやエージェントでログイン状態を代行</li>
+          <li>チケット方式（Kerberos など）</li>
+        </ul>
+      </details>
+    </section>
+
+    <section id="kerberos">
+      <h3>6.8.2 Kerberos認証（チケットでSSO）</h3>
+      <p>
+        企業内で広く使われるSSOの一つ。ディレクトリ（LDAP/AD）と連携し、<strong>チケット</strong>を使って各サービスに安全にアクセスします。
+      </p>
+      <div class="vis">
+        <div class="flow" id="kb-flow">
+          <div class="step">1) 認証: ユーザー → KDC</div>
+          <div class="step">2) TGT 受領</div>
+          <div class="step">3) TGSへサービス用チケット要求</div>
+          <div class="step">4) サービス・セッションキー受領</div>
+          <div class="step">5) サービスに提示して利用</div>
+        </div>
+        <div style="margin-top:10px" class="chips">
+          <span class="chip">TGT: Ticket Granting Ticket</span>
+          <span class="chip">TGS: Ticket Granting Service</span>
+          <span class="chip">セッションキー</span>
+        </div>
+      </div>
+      <p class="muted">ポイント: パスワードを各サービスに見せず、チケット連鎖でSSOを実現。</p>
+    </section>
+
+    <section id="saml">
+      <h3>6.8.3 SAML（WebのSSO: XML + HTTP/SOAP）</h3>
+      <p>
+        SAMLはWeb前提のSSO規格。<strong>IdP（認証プロバイダー）</strong>と<strong>SP（サービス）</strong>が事前にメタデータ（XML）を交換し、
+        ブラウザのリダイレクト（HTTP-POSTなど）だけでログイン連携できます。
+      </p>
+      <div class="grid-2">
+        <div class="vis">
+          <div class="legend">
+            <span><i style="background:#60a5fa"></i> IdP</span>
+            <span><i style="background:#34d399"></i> SP</span>
+          </div>
+          <div class="flow" id="saml-flow">
+            <div class="step">1) ユーザーがSPにアクセス</div>
+            <div class="step">2) SP→IdPへリダイレクト（SAMLRequest）</div>
+            <div class="step">3) IdPでログイン</div>
+            <div class="step">4) IdP→SPへPOST（SAMLResponse）</div>
+            <div class="step">5) SPが検証し、元ページを表示</div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <strong>HTTP POSTバインディング例</strong>
+            <pre><code>&lt;form action="https://IdentityProvider.com/SAML/SLO/Response" method="post"&gt;
+  &lt;input type="hidden" name="RelayState" value="..." /&gt;
+  &lt;input type="hidden" name="SAMLRequest" value="(base64エンコードXML)" /&gt;
+  &lt;input type="submit" value="Continue" /&gt;
+&lt;/form&gt;</code></pre>
+            <p style="color:var(--muted)">IdPとSPの直接通信なしでも、ブラウザ経由のPOSTのみで成立。</p>
+          </div>
+        </div>
+      </div>
+      <details>
+        <summary>メタデータに含まれる主な要素</summary>
+        <ul>
+          <li>サービスID（エンティティID）</li>
+          <li>エンドポイントURL（ACSなど）</li>
+          <li>バインディング（HTTP-POST など）</li>
+          <li>X.509 証明書（署名/暗号化）</li>
+        </ul>
+      </details>
+    </section>
+
+    <section id="oauth">
+      <h3>6.8.4 OAuth 2.x（認可に特化：何を許すか）</h3>
+      <p>
+        OAuthは<strong>認証ではなく認可</strong>が目的。ユーザーの代わりにクライアントへ「できること（スコープ）」を委譲します。
+        代表的なフローは以下の通りです。
+      </p>
+      <div class="grid-2">
+        <div class="card">
+          <strong>Authorization Code（推奨）</strong>
+          <ul>
+            <li>ブラウザで認可、<span class="kbd">code</span>を取得→サーバーでトークン交換</li>
+            <li>公開クライアントは <strong>PKCE</strong> を併用</li>
+          </ul>
+        </div>
+        <div class="card">
+          <strong>Client Credentials</strong>
+          <ul>
+            <li>ユーザー不在。サーバー間通信でclient_secretを用いて取得</li>
+            <li>外部に漏れない安全なサーバーのみ</li>
+          </ul>
+        </div>
+        <div class="card">
+          <strong>Device Code</strong>
+          <ul>
+            <li>キーボードのない端末向け。別デバイスでユーザーが承認</li>
+          </ul>
+        </div>
+        <div class="card">
+          <strong>非推奨</strong>
+          <ul>
+            <li>Resource Owner Password（中継でID/パスワードを扱う）</li>
+            <li>Implicit（トークン直配布でリスク大）</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="vis">
+        <div class="legend">
+          <span><i style="background:#34d399"></i> クライアント</span>
+          <span><i style="background:#60a5fa"></i> 認可サーバー</span>
+          <span><i style="background:#f59e0b"></i> リソースサーバー</span>
+        </div>
+        <div class="flow" id="ac-flow">
+          <div class="step">1) 認可リクエスト（ブラウザ）</div>
+          <div class="step">2) ログイン＆同意（スコープ）</div>
+          <div class="step">3) リダイレクトで code 付与</div>
+          <div class="step">4) サーバー間でトークン交換</div>
+          <div class="step">5) アクセス：API（スコープ検証）</div>
+        </div>
+        <details style="margin-top:10px">
+          <summary>サンプル: トークンエンドポイント呼び出し</summary>
+          <pre><code>curl -d grant_type=authorization_code \
+     -d client_id=YOUR_CLIENT_ID \
+     -d client_secret=YOUR_CLIENT_SECRET \
+     -d redirect_uri=YOUR_REDIRECT_URI \
+     -d code=AUTH_CODE \
+     https://auth.example.com/oauth/token</code></pre>
+        </details>
+      </div>
+
+      <details>
+        <summary>スコープとは？（何を、どこまで許すか）</summary>
+        <p>
+          例: <span class="kbd">read:files</span>, <span class="kbd">write:files</span>, <span class="kbd">profile</span> など。
+          ユーザーは後から許可の取り消し・変更が可能です。
+        </p>
+      </details>
+    </section>
+
+    <section id="pkce">
+      <h3>PKCE（モバイル/SPAの安全なCodeフロー）</h3>
+      <p>
+        公開クライアントで<strong>code横取り</strong>を防ぐ仕組み。クライアントが事前に
+        <span class="kbd">code_verifier</span> から <span class="kbd">code_challenge</span> を生成・送信し、
+        トークン交換時に検証させます。
+      </p>
+      <div class="vis">
+        <div class="flow" id="pkce-flow">
+          <div class="step">1) 乱数 code_verifier 生成</div>
+          <div class="step">2) S256で code_challenge 作成</div>
+          <div class="step">3) 認可リクエスト: challenge 提示</div>
+          <div class="step">4) code 取得</div>
+          <div class="step">5) トークン交換: verifier 提示</div>
+          <div class="step">6) サーバー側で検証OK → トークン発行</div>
+        </div>
+      </div>
+      <p class="muted">IANA登録の推奨は S256（SHA-256）。plain は不可推奨。</p>
+    </section>
+
+    <section id="oidc">
+      <h3>6.8.5 OpenID Connect（OAuthに「認証」を重ねる）</h3>
+      <p>
+        OpenID Connectは OAuth 2.0 の上に「認証レイヤ」を追加。アクセストークンに加え、
+        <strong>IDトークン（JWT）</strong> を発行し、ユーザー識別を標準化された方法で提供します。
+      </p>
+      <div class="grid-2">
+        <div class="card">
+          <strong>エンドポイント</strong>
+          <ul>
+            <li>認可エンドポイント（/authorize）</li>
+            <li>トークンエンドポイント（/token）</li>
+            <li>ユーザー情報エンドポイント（/userinfo）</li>
+            <li>OpenID Provider Metadata（.well-known/openid-configuration）</li>
+          </ul>
+        </div>
+        <div class="card">
+          <strong>フロー</strong>
+          <ul>
+            <li>Authorization Code（推奨、強い）</li>
+            <li>Implicit（id_token直配布。用途限定・慎重に）</li>
+            <li>Hybrid（id_token + codeの併用：4者間など高度構成で有用）</li>
+          </ul>
+        </div>
+      </div>
+      <div class="vis">
+        <div class="legend">
+          <span><i style="background:#34d399"></i> クライアント1（アプリ）</span>
+          <span><i style="background:#64748b"></i> クライアント2（自前API）</span>
+          <span><i style="background:#60a5fa"></i> OP（認可/認証）</span>
+        </div>
+        <div class="flow" id="hybrid-flow">
+          <div class="step">1) アプリは OPへ認可要求（Hybrid）</div>
+          <div class="step">2) id_token + code を受領</div>
+          <div class="step">3) code をバックエンドへ転送</div>
+          <div class="step">4) バックエンドが自らトークン交換</div>
+          <div class="step">5) アクセストークンはサーバー側で保持</div>
+        </div>
+        <p class="muted">アクセストークンをオープンに渡さず安全性を高める。FAPI等で要求。</p>
+      </div>
+    </section>
+
+    <section id="jwt">
+      <h3>6.8.6 JWT（JSON Web Token）</h3>
+      <p>
+        JWTは<strong>署名付きJSON</strong>を3区分（ヘッダー・ペイロード・署名）でBase64URL結合したトークン。
+        認証・認可で広く使われます。
+      </p>
+      <div class="jwt">
+        <div class="seg h">ヘッダー（alg, typ など）</div>
+        <div class="seg p">ペイロード（iss, sub, aud, exp, iat, jti + 任意クレーム）</div>
+        <div class="seg s">署名（JWS：ヘッダー・ペイロードに対する署名）</div>
+      </div>
+      <details>
+        <summary>便利さと注意点</summary>
+        <ul>
+          <li class="ok">便利: 署名検証できればIdPへ問い合わせずに属性を参照可能（高速）</li>
+          <li class="danger">危険: 署名検証せずに信頼・exp確認漏れ・aud/issの不一致放置などはNG</li>
+          <li class="warn">ログアウト: 短寿命化 + リフレッシュ運用 or jtiブラックリスト検証が必要</li>
+          <li>署名アルゴリズムは<strong>ホワイトリスト</strong>で固定（"none"や弱い鍵を拒否）</li>
+        </ul>
+      </details>
+      <div class="grid-2" style="margin-top:10px">
+        <div class="card">
+          <strong>JOSEファミリー</strong>
+          <ul>
+            <li>JWS（署名）</li>
+            <li>JWE（暗号化）</li>
+            <li>JWK（鍵形式）</li>
+            <li>JWA（アルゴリズム）</li>
+          </ul>
+        </div>
+        <div class="card">
+          <strong>OPメタデータの例</strong>
+          <p class="muted">.well-known/openid-configuration から <span class="kbd">jwks_uri</span> で公開鍵取得</p>
+          <ul>
+            <li>Google: <a href="https://accounts.google.com/.well-known/openid-configuration" target="_blank">accounts.google.com</a></li>
+            <li>Microsoft: <a href="https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration" target="_blank">login.microsoftonline.com</a></li>
+          </ul>
+        </div>
+      </div>
+      <details>
+        <summary>CBOR/CWT（豆知識）</summary>
+        <p>バイナリ表現のCBORや、そのJWT相当のCWTもRFC化。Passkeysなど近年の標準でも採用例。</p>
+      </details>
+    </section>
+
+    <section id="pitfalls">
+      <h3>6.8.7 実サービスの「落とし穴」チェックリスト</h3>
+      <ul class="checklist">
+        <li>
+          <strong>「OAuth2対応」の意味を確認</strong>: クライアント機能なのか、サーバー（IdP/OP）機能なのか。
+          Keycloak/Auth0 は両者の機能を持つ場合がある。
+        </li>
+        <li>
+          <strong>安定識別子を使う</strong>: メールや電話番号は所有者が変わる。OIDC/JWTでは <span class="kbd">sub</span> を主キーに。
+        </li>
+        <li>
+          <strong>複数ログイン手段の名寄せ</strong>: GoogleとLINEなど異種IDで同一人に紐付けるなら、<em>ユーザー明示のリンク手続き</em>を用意。
+        </li>
+        <li>
+          <strong>アクセストークンをオープンに渡さない</strong>: モバイル→自前APIには <em>code</em>（+PKCE）を渡し、トークン交換はサーバー側で。
+        </li>
+        <li>
+          <strong>JWTの検証</strong>: 署名・exp・nbf・aud・iss・kid→JWK検証を必ず実施。アルゴリズム固定。
+        </li>
+        <li>
+          <strong>ログアウト設計</strong>: 短寿命アクセストークン/リフレッシュ・トークン回転、またはjtiリストで失効管理。
+        </li>
+        <li>
+          <strong>公開クライアントの秘匿性はゼロ前提</strong>: client_secret を埋め込まない。PKCE＋Codeフロー。
+        </li>
+      </ul>
+      <p class="muted">参考: Microsoftの失敗パターンまとめ（False Identifier Anti-Pattern）</p>
+    </section>
+
+    <section id="refs">
+      <h3>参考資料リンク</h3>
+      <ul>
+        <li>OpenID Foundation Japan（仕様の日本語訳）: <a href="http://www.openid.or.jp/document/" target="_blank">openid.or.jp/document</a></li>
+        <li>OAuth徹底入門（書籍）</li>
+        <li>OAuth 2.1（議論の経緯）: <a href="https://aaronparecki.com/2019/12/12/21/its-time-for-oauth-2-dot-1" target="_blank">aaronparecki.com</a></li>
+        <li>OAuth.com（実装ガイド）: <a href="https://www.oauth.com/" target="_blank">oauth.com</a></li>
+        <li>JWT Best Current Practices: <a href="https://www.rfc-editor.org/rfc/rfc8725" target="_blank">RFC 8725</a></li>
+        <li>OASIS SAML 2.0: <a href="https://www.oasis-open.org/standards" target="_blank">oasis-open.org/standards</a></li>
+        <li>Microsoft Blog（識別子アンチパターン）: <a href="https://techcommunity.microsoft.com/t5/microsoft-entra-azure-ad-blog/the-false-identifier-anti-pattern/ba-p/3846013" target="_blank">techcommunity.microsoft.com</a></li>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <small>ヒント: 各フローのステップをクリックすると強調表示されます（視覚的に手順を確認）。</small>
+</footer>
+
+<script>
+  // クリックでフローステップをハイライト（視覚的な追従）
+  document.querySelectorAll('.flow').forEach(flow => {
+    flow.addEventListener('click', e => {
+      const step = e.target.closest('.step');
+      if(!step) return;
+      flow.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+      step.classList.add('active');
+    });
+  });
+
+  // 初期で先頭ステップを軽く強調
+  document.querySelectorAll('.flow').forEach(flow => {
+    const first = flow.querySelector('.step');
+    if(first) first.classList.add('active');
+  });
+</script>
+</body>
+</html>
